@@ -103,11 +103,12 @@ export function FolderTreeItem({
 
   const deleteFolder = useMutation(api.folders.deleteFolder);
   const fetchNotesInFolder = useQuery(api.notes.fetchNotesInFolder,{folderId:folder._id});
+  const fectchFilesInFolder = useQuery(api.files.fetchfiles,{folderId:folder._id});
   // ============================================
   // COMPUTED VALUES
   // ============================================
   const childFolders = buildFolderTree(folder._id);     // Get all direct child folders
-  const hasChildren = childFolders.length > 0 || (fetchNotesInFolder && fetchNotesInFolder.length > 0) ;          // Does this folder have subfolders?
+  const hasChildren = childFolders.length > 0 || (fetchNotesInFolder && fetchNotesInFolder.length > 0)|| (fectchFilesInFolder && fectchFilesInFolder.length > 0) ;          // Does this folder have subfolders?
   const counts = getFolderItemCounts(folder._id);       // Count notes and subfolders
   const isActive = pathname === `/folders/${folder._id}`; // Is user currently viewing this folder?
   const createNote = useMutation(api.notes.createNote)
@@ -340,14 +341,21 @@ export function FolderTreeItem({
           </div> */}
 
           {/* Files Link (placeholder - shows all uploaded files in folder) */}
-          {/* <div
+          {fectchFilesInFolder && fectchFilesInFolder.length >0 && (
+            fectchFilesInFolder.map((file)=>(
+              <div key={file._id} >
+           <div
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors"
             style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
-            onClick={() => router.push(`/folders/${folder._id}/files`)}
+            onClick={() => router.push(`/folders/${folder._id}/files/${file._id}`)}
           >
             <FileIcon className="h-4 w-4 shrink-0" />
-            <span className="flex-1 truncate">Files</span>
-          </div> */}
+            <span className="flex-1 truncate">{file.fileName} </span>
+               </div>
+            </div>
+            ))
+          ) }
+         
         </div>
       )}
       <CreateFolder open={isCreateSubfolderOpen} onOpenChange={setIsCreateSubfolderOpen} parentId={folder._id} />

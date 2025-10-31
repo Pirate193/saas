@@ -57,3 +57,21 @@ export const deleteFile = mutation({
     }
 })
 
+export const getFile = query({
+    args:{
+        fileId:v.id("files")
+    },
+    handler:async (ctx ,args)=>{
+       
+        const file = await ctx.db.get(args.fileId);
+        if(!file){
+            throw new Error("File not found");
+        }
+        const fileurl = await ctx.storage.getUrl(file.storageId)
+        return {
+            file:file,
+            fileurl:fileurl
+        };
+    }
+})
+
