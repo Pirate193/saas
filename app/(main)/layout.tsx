@@ -2,6 +2,7 @@ import { BreadcrumbComponent} from "@/components/Breadcrumbs"
 import { AppSidebar } from "@/components/sidebarcomponents/app-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { SignedIn } from "@clerk/nextjs"
+import { Toaster } from "sonner"
 
 export default function MainLayout({
 children,
@@ -24,8 +25,9 @@ children,
         
         {/* Main Content */}
         <SignedIn>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-scroll no-scrollbar ">
             {children}
+            <Toaster />
           </div>
         </SignedIn>
       </main>

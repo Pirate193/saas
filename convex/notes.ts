@@ -42,10 +42,6 @@ export const createNote = mutation({
             userId:user.subject,
             folderId:args.folderId,
             title:args.title,
-            content:{
-                type:"doc",
-                blocks:[]
-            },
             updatedAt:Date.now(),
             }
         );
@@ -95,10 +91,32 @@ export const getNoteId = query({
         noteId:v.id("notes"),
     },
     handler:async (ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
         const note = await ctx.db.get(args.noteId);
         if(!note){
             throw new Error("Note not found.");
         }
         return note;
+    }
+})
+
+export const updateContent = mutation({
+    args:{
+        noteId:v.id("notes"),
+        content:v.optional(v.string()),
+    },
+    handler:async (ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
+        const note = await ctx.db.get(args.noteId);
+        if(!note || note.userId !== user.subject){
+            throw new Error("Note not found or access denied.");
+        }
+        await ctx.db.patch(args.noteId,{content:args.content, updatedAt:Date.now()});
     }
 })

@@ -18,15 +18,25 @@ import {
 
 // Define proper types
 interface FolderType {
-   _id: Id<"folders">;           // Unique folder ID from Convex
-   _creationTime: number;         // Timestamp when folder was created
-   name: string;                  // Folder name displayed to user
-   parentId?: string | Id<"folders">; // ID of parent folder (undefined = root folder)
-   userId: string;                // Owner of this folder
-   description?: string; 
+  _id: Id<"folders">;
+  _creationTime: number;
+  name: string;
+  parentId?: string | Id<"folders">;
+  userId: string;
+  description?: string;
 }
 
-interface BreadcrumbItem {
+interface NoteType {
+  _id: Id<"notes">;
+  _creationTime: number;
+  userId: string;
+  folderId?: Id<"folders">;
+  title: string;
+  content: string;
+  updatedAt: number;
+}
+
+interface BreadcrumbItemType {
   label: string;
   href: string;
   icon?: React.ReactNode;
@@ -36,6 +46,7 @@ interface BreadcrumbItem {
 export function BreadcrumbComponent() {
   const pathname = usePathname();
   const folders = useQuery(api.folders.fetchFolders);
+  const notes = useQuery(api.notes.fetchNotes);
 
   // Parse the pathname to extract route segments
   const segments = pathname.split("/").filter(Boolean);
@@ -67,8 +78,8 @@ export function BreadcrumbComponent() {
   };
 
   // Build breadcrumb trail
-  const buildBreadcrumbs = (): BreadcrumbItem[] => {
-    const crumbs: BreadcrumbItem[] = [];
+  const buildBreadcrumbs = (): BreadcrumbItemType[] => {
+    const crumbs: BreadcrumbItemType[] = [];
 
     // Don't show breadcrumbs on home page
     if (pathname === "/" || pathname === "/home") {
@@ -78,15 +89,15 @@ export function BreadcrumbComponent() {
     // Handle folder routes
     if (segments[0] === "folders" && segments[1]) {
       const folderId = segments[1] as Id<"folders">;
-      
+
       // Get folder and build hierarchy
       if (folders) {
         const folder = folders.find((f) => f._id === folderId);
-        
+
         if (folder) {
           // Build parent chain
           const parentChain = buildParentChain(folder, folders);
-          
+
           // Add parent folders to breadcrumbs
           parentChain.forEach((parentFolder) => {
             crumbs.push({
@@ -113,7 +124,41 @@ export function BreadcrumbComponent() {
               files: { label: "Files", icon: <FileIcon className="h-4 w-4" /> },
             };
 
-            if (subRouteConfig[subRoute]) {
+            // If viewing a specific item (e.g., /folders/xyz/notes/note-id)
+            if (segments[3]) {
+              const itemId = segments[3] as Id<"notes">; // or other ID types
+
+              // For notes - fetch and display note title
+              if (subRoute === "notes" && notes) {
+                const note = notes.find((n) => n._id === itemId);
+                crumbs.push({
+                  label: note?.title || "Untitled Note",
+                  href: `/folders/${folderId}/notes/${itemId}`,
+                  icon: <FileText className="h-4 w-4" />,
+                  isLast: true,
+                });
+              }
+              // For flashcards (TODO: implement when flashcard schema exists)
+              else if (subRoute === "flashcards") {
+                crumbs.push({
+                  label: "Flashcard Set",
+                  href: `/folders/${folderId}/flashcards/${itemId}`,
+                  icon: <CreditCard className="h-4 w-4" />,
+                  isLast: true,
+                });
+              }
+              // For files (TODO: implement when file schema exists)
+              else if (subRoute === "files") {
+                crumbs.push({
+                  label: "File",
+                  href: `/folders/${folderId}/files/${itemId}`,
+                  icon: <FileIcon className="h-4 w-4" />,
+                  isLast: true,
+                });
+              }
+            }
+            // If viewing list view (e.g., /folders/xyz/notes)
+            else if (subRouteConfig[subRoute]) {
               crumbs.push({
                 label: subRouteConfig[subRoute].label,
                 href: `/folders/${folderId}/${subRoute}`,
@@ -125,18 +170,24 @@ export function BreadcrumbComponent() {
         }
       }
     } else if (segments[0] === "notes" && segments[1]) {
-      // Individual note view
+      // Individual note view (standalone, not in a folder)
       crumbs.push({
         label: "Notes",
         href: "/notes",
         icon: <FileText className="h-4 w-4" />,
       });
-      crumbs.push({
-        label: "Note Details",
-        href: `/notes/${segments[1]}`,
-        icon: <FileText className="h-4 w-4" />,
-        isLast: true,
-      });
+
+      // Fetch specific note if notes are loaded
+      if (notes) {
+        const noteId = segments[1] as Id<"notes">;
+        const note = notes.find((n) => n._id === noteId);
+        crumbs.push({
+          label: note?.title || "Note Details",
+          href: `/notes/${segments[1]}`,
+          icon: <FileText className="h-4 w-4" />,
+          isLast: true,
+        });
+      }
     } else if (segments[0] === "flashcards") {
       crumbs.push({
         label: "Flashcards",

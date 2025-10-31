@@ -16,10 +16,7 @@ export default defineSchema({
     userId:v.string(),
     folderId:v.optional(v.id("folders")),
     title:v.string(),
-    content:v.object({
-        type:v.string(),
-        blocks:v.array(v.any())
-    }),
+    content:v.optional(v.string()),
     updatedAt:v.number(),
   })
   .index("by_user",["userId"])

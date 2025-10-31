@@ -19,7 +19,7 @@ export function NavMain({
   }[]
 }) {
   return (
-    <SidebarMenu>
+    <SidebarMenu  >
       {items.map((item) => (
         <SidebarMenuItem key={item.title}>
           <SidebarMenuButton asChild isActive={item.isActive}>

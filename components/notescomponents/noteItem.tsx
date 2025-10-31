@@ -12,6 +12,10 @@ import {
 import { useState } from "react";
 import { Button } from "../ui/button";
 import UpdateTitle from "./update-title";
+import DeleteDialog from "../DeleteDialog";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { toast } from "sonner";
 
 interface NoteItemProps {
   noteId: Id<"notes">;
@@ -20,8 +24,18 @@ interface NoteItemProps {
 }
 const NoteItem = ({ title, folderId, noteId }: NoteItemProps) => {
     const router = useRouter();
+    const deletenote = useMutation(api.notes.deleteNote)
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [openRenameDialog, setOpenRenameDialog] = useState(false);
+
+    const handledelete = () => {
+      try{
+        deletenote({noteId: noteId});
+        toast.success("Note deleted successfully");
+      }catch(error){
+        toast.error("Failed to delete note");
+      }
+    }
   return (
     <>
     <div
@@ -58,6 +72,14 @@ const NoteItem = ({ title, folderId, noteId }: NoteItemProps) => {
       open={openRenameDialog}
         onOpenChange={setOpenRenameDialog}
         noteId={noteId}
+      />
+      <DeleteDialog 
+      open={openDeleteDialog}
+      onOpenChange={setOpenDeleteDialog}
+      title="Delete Note"
+      description={`Are you sure you want to delete ${title} This action cannot be undone.`}
+      itemName={title}
+      onConfirm={handledelete}
       />
     </>
   );

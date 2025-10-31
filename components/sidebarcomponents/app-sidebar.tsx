@@ -4,6 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "../ui/sid
 import { NavMain } from "./Nav-main";
 import { NavUser } from "./nav-user";
 import Navfolders from "./nav-folders";
+import Navheader from "./nav-header";
 
 
 const data = {
@@ -41,7 +42,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return (
         <Sidebar {...props} >
             <SidebarHeader>
-
+               <Navheader />
             </SidebarHeader>
             <SidebarContent>
               <NavMain items={data.navMain} />

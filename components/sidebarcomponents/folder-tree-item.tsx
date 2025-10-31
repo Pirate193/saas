@@ -28,6 +28,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import UpdateDialog from "../folderscomponents/update-folder";
 import NoteItem from "../notescomponents/noteItem";
+import Uploadfile from "../filescomponents/uploadfile";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -49,10 +50,7 @@ type NoteData = {
   userId: string;
   folderId?: Id<"folders">;      // Which folder this note belongs to
   title: string;
-  content: {
-    type: string;
-    blocks: [];               // Block-based editor content (like Notion)
-  };
+  content: string;
   updatedAt: number;
 };
 
@@ -104,20 +102,22 @@ export function FolderTreeItem({
   const [isExpanded, setIsExpanded] = useState(false);  // Controls if folder is expanded/collapsed
 
   const deleteFolder = useMutation(api.folders.deleteFolder);
+  const fetchNotesInFolder = useQuery(api.notes.fetchNotesInFolder,{folderId:folder._id});
   // ============================================
   // COMPUTED VALUES
   // ============================================
   const childFolders = buildFolderTree(folder._id);     // Get all direct child folders
-  const hasChildren = childFolders.length > 0;          // Does this folder have subfolders?
+  const hasChildren = childFolders.length > 0 || (fetchNotesInFolder && fetchNotesInFolder.length > 0) ;          // Does this folder have subfolders?
   const counts = getFolderItemCounts(folder._id);       // Count notes and subfolders
   const isActive = pathname === `/folders/${folder._id}`; // Is user currently viewing this folder?
   const createNote = useMutation(api.notes.createNote)
-  const fetchNotesInFolder = useQuery(api.notes.fetchNotesInFolder,{folderId:folder._id});
+
 
   const [isCreateSubfolderOpen, setIsCreateSubfolderOpen] = useState(false); //subfolder state
 
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false); //delete dialog state
   const [UpdateDialogOpen, setUpdateDialogOpen] = useState(false); //update dialog state
+  const [openUploadDialog,setOpenUploadDialog] = useState(false); //upload dialog state
   // ============================================
   // EVENT HANDLERS
   // ============================================
@@ -258,7 +258,7 @@ export function FolderTreeItem({
                 <CreditCard className="h-4 w-4 mr-2" />
                 New Flashcard
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleUploadFile}>
+              <DropdownMenuItem onClick={()=>setOpenUploadDialog(true)}>
                 <FileIcon className="h-4 w-4 mr-2" />
                 Upload File
               </DropdownMenuItem>
@@ -321,31 +321,33 @@ export function FolderTreeItem({
           {counts.notes > 0 && (
             fetchNotesInFolder?.map((note)=>(
               <div key={note._id}
-              className="ml-4" >
+              className="" 
+              style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+               >
               <NoteItem noteId={note._id} title={note.title} folderId={note.folderId}  />
               </div>
             ))
           )}
 
           {/* Flashcards Link (placeholder - shows all flashcards in folder) */}
-          <div
+          {/* <div
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors"
             style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
             onClick={() => router.push(`/folders/${folder._id}/flashcards`)}
           >
             <CreditCard className="h-4 w-4 shrink-0" />
             <span className="flex-1 truncate">Flashcards</span>
-          </div>
+          </div> */}
 
           {/* Files Link (placeholder - shows all uploaded files in folder) */}
-          <div
+          {/* <div
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors"
             style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
             onClick={() => router.push(`/folders/${folder._id}/files`)}
           >
             <FileIcon className="h-4 w-4 shrink-0" />
             <span className="flex-1 truncate">Files</span>
-          </div>
+          </div> */}
         </div>
       )}
       <CreateFolder open={isCreateSubfolderOpen} onOpenChange={setIsCreateSubfolderOpen} parentId={folder._id} />
@@ -362,6 +364,11 @@ export function FolderTreeItem({
       <UpdateDialog 
       open={UpdateDialogOpen}
       onOpenChange={setUpdateDialogOpen}
+      folderId={folder._id}
+      />
+      <Uploadfile
+      open={openUploadDialog}
+      onclose={setOpenUploadDialog}
       folderId={folder._id}
       />
     </div>
