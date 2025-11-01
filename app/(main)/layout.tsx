@@ -1,36 +1,28 @@
-import { BreadcrumbComponent} from "@/components/Breadcrumbs"
-import { AppSidebar } from "@/components/sidebarcomponents/app-sidebar"
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { SignedIn } from "@clerk/nextjs"
-import { Toaster } from "sonner"
+import { BreadcrumbComponent } from "@/components/Breadcrumbs";
+import { AppSidebar } from "@/components/sidebarcomponents/app-sidebar";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SignedIn } from "@clerk/nextjs";
+import { Toaster } from "sonner";
 
 export default function MainLayout({
-children,
+  children,
 }: Readonly<{
-  children: React.ReactNode
-}>){
-       return (
-         <SidebarProvider>
-           <AppSidebar />
-           <main className="flex-1 flex flex-col w-full">
-        {/* Header with Sidebar Trigger and Breadcrumbs */}
-        <div className=" sticky top-0 bg-background z-10">
-          <div className="flex items-center gap-2 px-4 ">
-            <SidebarTrigger />
-            <SignedIn>
-              <BreadcrumbComponent/>
-            </SignedIn>
-          </div>
-        </div>
-        
-        {/* Main Content */}
-        <SignedIn>
-          <div className="flex-1 overflow-y-scroll no-scrollbar ">
-            {children}
-            <Toaster />
-          </div>
-        </SignedIn>
-      </main>
-        </SidebarProvider>
-       )
+  children: React.ReactNode;
+}>) {
+  return (
+     <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+         <main>
+          {children}
+          </main>
+        <Toaster />
+      </SidebarInset>
+    </SidebarProvider>
+  );
 }

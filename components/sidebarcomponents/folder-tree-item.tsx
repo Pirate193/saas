@@ -29,6 +29,7 @@ import { api } from "@/convex/_generated/api";
 import UpdateDialog from "../folderscomponents/update-folder";
 import NoteItem from "../notescomponents/noteItem";
 import Uploadfile from "../filescomponents/uploadfile";
+import Createflashcard from "../flashcardComponents/createFlashcard";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -104,11 +105,12 @@ export function FolderTreeItem({
   const deleteFolder = useMutation(api.folders.deleteFolder);
   const fetchNotesInFolder = useQuery(api.notes.fetchNotesInFolder,{folderId:folder._id});
   const fectchFilesInFolder = useQuery(api.files.fetchfiles,{folderId:folder._id});
+  const fetchFlashcardsInFolder = useQuery(api.flashcards.fetchFlashcards,{folderId:folder._id});
   // ============================================
   // COMPUTED VALUES
   // ============================================
   const childFolders = buildFolderTree(folder._id);     // Get all direct child folders
-  const hasChildren = childFolders.length > 0 || (fetchNotesInFolder && fetchNotesInFolder.length > 0)|| (fectchFilesInFolder && fectchFilesInFolder.length > 0) ;          // Does this folder have subfolders?
+  const hasChildren = childFolders.length > 0 || (fetchNotesInFolder && fetchNotesInFolder.length > 0)|| (fectchFilesInFolder && fectchFilesInFolder.length > 0)|| (fetchFlashcardsInFolder && fetchFlashcardsInFolder.length > 0);          // Does this folder have subfolders?
   const counts = getFolderItemCounts(folder._id);       // Count notes and subfolders
   const isActive = pathname === `/folders/${folder._id}`; // Is user currently viewing this folder?
   const createNote = useMutation(api.notes.createNote)
@@ -119,6 +121,7 @@ export function FolderTreeItem({
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false); //delete dialog state
   const [UpdateDialogOpen, setUpdateDialogOpen] = useState(false); //update dialog state
   const [openUploadDialog,setOpenUploadDialog] = useState(false); //upload dialog state
+  const [openCreateFlashcardDialog,setOpenCreateFlashcardDialog] = useState(false); //create flashcard dialog state
   // ============================================
   // EVENT HANDLERS
   // ============================================
@@ -192,7 +195,7 @@ export function FolderTreeItem({
       <div
         className={cn(
           "group/item flex items-center gap-1 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors",
-          isActive && "bg-accent font-medium"  // Highlight if this folder is currently open
+          isActive && "bg-[#e3ebdd] font-medium"  // Highlight if this folder is currently open
         )}
         // Dynamic padding based on nesting level (creates the tree indent effect)
         style={{ paddingLeft: `${level * 12 + 8}px` }}
@@ -202,7 +205,7 @@ export function FolderTreeItem({
         <button
           onClick={handleToggle}
           className={cn(
-            "shrink-0 rounded-sm hover:bg-accent-foreground/10 p-0.5 transition-transform",
+            "shrink-0 rounded-sm hover:bg-[#f4f2ea] p-0.5 transition-transform",
             !hasChildren && "invisible"  // Hide chevron if no children
           )}
         >
@@ -216,9 +219,9 @@ export function FolderTreeItem({
 
         {/* Folder Icon (changes when expanded) */}
         {isExpanded ? (
-          <FolderOpen className="h-4 w-4 shrink-0 text-blue-500" />
+          <FolderOpen className="h-4 w-4 shrink-0 text-myprimary" />
         ) : (
-          <Folder className="h-4 w-4 shrink-0 text-blue-500" />
+          <Folder className="h-4 w-4 shrink-0 text-myprimary" />
         )}
 
         {/* Folder Name */}
@@ -255,7 +258,7 @@ export function FolderTreeItem({
                 <FileText className="h-4 w-4 mr-2" />
                 New Note
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleCreateFlashcard}>
+              <DropdownMenuItem onClick={()=>setOpenCreateFlashcardDialog(true)}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 New Flashcard
               </DropdownMenuItem>
@@ -331,14 +334,17 @@ export function FolderTreeItem({
           )}
 
           {/* Flashcards Link (placeholder - shows all flashcards in folder) */}
-          {/* <div
+          {fetchFlashcardsInFolder && fetchFlashcardsInFolder.length >0 && (
+             <div
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors"
             style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
             onClick={() => router.push(`/folders/${folder._id}/flashcards`)}
           >
             <CreditCard className="h-4 w-4 shrink-0" />
-            <span className="flex-1 truncate">Flashcards</span>
-          </div> */}
+            <span className="flex-1 truncate">Flashcards ({fetchFlashcardsInFolder.length}) </span>
+          </div>
+          )}
+         
 
           {/* Files Link (placeholder - shows all uploaded files in folder) */}
           {fectchFilesInFolder && fectchFilesInFolder.length >0 && (
@@ -377,6 +383,11 @@ export function FolderTreeItem({
       <Uploadfile
       open={openUploadDialog}
       onclose={setOpenUploadDialog}
+      folderId={folder._id}
+      />
+      <Createflashcard
+      open={openCreateFlashcardDialog}
+      onOpenChange={setOpenCreateFlashcardDialog}
       folderId={folder._id}
       />
     </div>

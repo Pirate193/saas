@@ -43,7 +43,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  
+  --color-mybg: var(--mybg);
+  --color-myprimary: var(--myprimary);
+  --color-mysidebar: var(--mysidebar);
+  --color-inactive: var(--inactive);
 }
 
 :root {
@@ -79,6 +82,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --mybg:#fffdf8;
+  --myprimary:#379f57;
+  --mysidebar:#f6f4ec;
+  --inactive: #f2f0e8;
 }
 
 .dark {
@@ -113,6 +120,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --mybg:#262626;
+  --mysidebar:#191919;
 }
 
 @layer base {
@@ -124,13 +133,15 @@
   }
 }
 
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 
-      /* Hide scrollbar for IE, Edge and Firefox */
-      .no-scrollbar {
-        -ms-overflow-style: none; /* IE and Edge */
-        scrollbar-width: none; /* Firefox */
-      }
-    
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hidden {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}

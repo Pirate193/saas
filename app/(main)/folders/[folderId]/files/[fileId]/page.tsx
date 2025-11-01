@@ -56,7 +56,7 @@ const FilePage =  async ({params}:{params:Promise<{fileId:string}>}) => {
       }
     }
   return (
-    <div>
+    <div >
       {renderFileView()}
     </div>
   )

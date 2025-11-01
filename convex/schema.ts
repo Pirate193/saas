@@ -35,6 +35,19 @@ export default defineSchema({
     .index("by_folder",["folderId"]),
   
    // flashceards
+   flashcards:defineTable({
+    userId:v.string(),
+    folderId:v.id("folders"),
+    question:v.string(),
+    answers:v.array(v.object({
+      text:v.string(),
+      isCorrect:v.boolean()
+    })),
+    isMultipleChoice:v.boolean(),
+    updatedAt:v.number(),
+   })
+   .index("by_user",["userId"])
+   .index("by_folder",["folderId"]),
 
    //flashcard reviews
 })

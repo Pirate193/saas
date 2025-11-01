@@ -40,12 +40,12 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return (
-        <Sidebar {...props} >
+        <Sidebar {...props} className="bg-mysidebar" >
             <SidebarHeader>
                <Navheader />
+               <NavMain items={data.navMain} />
             </SidebarHeader>
-            <SidebarContent>
-              <NavMain items={data.navMain} />
+            <SidebarContent className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden" >
               <Navfolders />
             </SidebarContent>
             <SidebarFooter>
