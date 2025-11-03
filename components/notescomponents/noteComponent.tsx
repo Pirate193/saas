@@ -55,7 +55,7 @@ const NoteComponent = ({ noteId }: NoteComponentProps) => {
       } finally {
         setIsSaving(false);
       }
-    }, 1000); // 1 second debounce
+    }, 2000); // 2 second debounce
   };
 
   // Debounced title save

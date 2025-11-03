@@ -205,7 +205,7 @@ export function FolderTreeItem({
         <button
           onClick={handleToggle}
           className={cn(
-            "shrink-0 rounded-sm hover:bg-[#f4f2ea] p-0.5 transition-transform",
+            "shrink-0 rounded-sm hover:bg-[#f4f2ea] dark:bg-[#1c261f] p-0.5 transition-transform",
             !hasChildren && "invisible"  // Hide chevron if no children
           )}
         >

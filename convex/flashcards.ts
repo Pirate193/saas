@@ -201,3 +201,43 @@ export const fetchflashcarddue = query({
 
     }
 })
+
+export const fetchStudyStats = query({
+    args:{
+        folderId:v.id("folders"),
+    },
+    handler: async (ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
+        
+        const flashcards = await ctx.db.query("flashcards").withIndex("by_folder",(q)=>q.eq("folderId",args.folderId)).collect();
+        
+        
+        const now = new Date();
+        const weekFromnow = new Date();
+        weekFromnow.setDate(weekFromnow.getDate()+7);
+
+        const  totalCards = flashcards.length;
+        const dueToday = flashcards.filter(f=> new Date(f.nextReviewDate)<= now).length;
+        const duethisweek = flashcards.filter(f=> new Date(f.nextReviewDate)<= weekFromnow).length;
+        const masteredCards = flashcards.filter(f=>f.repetitions >= 3 && f.easeFactor >= 2.5).length;
+        const newcards = flashcards.filter(f=>f.totalReviews === 0).length;
+        const averageEase = flashcards.reduce((sum,f)=>sum + (f.easeFactor || 2.5),0)/flashcards.length;
+        const totalReviews = flashcards.reduce((sum,f)=>sum + (f.totalReviews || 0),0);
+        const successRate = flashcards.reduce((sum,f)=>sum + (f.totalReviews || 0),0)>0
+        ? (flashcards.reduce((sum,f)=>sum + (f.correctReviews||0 ),0))/ flashcards.reduce((sum,f)=>sum + (f.totalReviews || 0),0)*100
+        :0;
+        return {
+            totalCards,
+            dueToday,
+            duethisweek,
+            masteredCards,
+            newcards,
+            averageEase,
+            totalReviews,
+            successRate,
+        }
+    }
+})
