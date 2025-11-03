@@ -5,7 +5,7 @@ import React from 'react'
 const FlashcardPage = async ({params}:{params:Promise<{folderId:string}>}) => {
     const {folderId} = await params
   return (
-    <div>
+    <div className='p-4' >
         <FlashcardList folderId={folderId as Id<'folders'>} />
     </div>
   )

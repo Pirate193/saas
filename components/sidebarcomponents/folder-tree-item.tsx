@@ -195,7 +195,7 @@ export function FolderTreeItem({
       <div
         className={cn(
           "group/item flex items-center gap-1 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors",
-          isActive && "bg-[#e3ebdd] font-medium"  // Highlight if this folder is currently open
+          isActive && "bg-[#e3ebdd] dark:bg-[#1c261f] font-medium"  // Highlight if this folder is currently open
         )}
         // Dynamic padding based on nesting level (creates the tree indent effect)
         style={{ paddingLeft: `${level * 12 + 8}px` }}

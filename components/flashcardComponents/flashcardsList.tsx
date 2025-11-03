@@ -12,6 +12,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog"
 import { useState } from "react"
 import Createflashcard from "./createFlashcard"
+import { toast } from "sonner"
+import FlashcardViewer from "./flashcard-viewer"
 
 interface FlashcardListProps {
     folderId:Id<'folders'>
@@ -23,14 +25,24 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [flashcardToDelete, setFlashcardToDelete] = useState<Id<'flashcards'> | null>(null)
     const [openCreateFlashcardDialog,setOpenCreateFlashcardDialog] = useState(false)
+    const [studymode,setstudymode]=useState(false)
+    const [currentIndex,setcurrentIndex]=useState(0)
+   const flashcardsdue = useQuery(api.flashcards.fetchflashcarddue,{folderId:folderId})
+  
+   const [currentFlashcard,setCurrentFlashcard]=useState<Id<'flashcards'> | null>(null)
 
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setcurrentIndex(currentIndex - 1)
+    }
+  }
     const handleDelete =async ()=>{
         if(!flashcardToDelete) return
         await deleteFlashcard({flashcardId:flashcardToDelete})
         setDeleteDialogOpen(false)
         setFlashcardToDelete(null)
     }
-    if(flashcards === undefined){
+    if(flashcards === undefined || flashcardsdue === undefined){
         return (
             <div className="space-y-4" >
                 <Skeleton className="h-12 w-full"/>
@@ -39,15 +51,64 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
             </div>
         )
     }
+    const handleNext = () => {
+    if (currentIndex < flashcardsdue?.length - 1) {
+      setcurrentIndex(currentIndex + 1)
+    }
+  }
+    const handleStartStudy = async ()=>{
+      if(flashcardsdue && flashcardsdue?.length >0){
+        setcurrentIndex(0)
+        setstudymode(true)
+      }else{
+        toast.info('No cards due for review right now ')
+      }
+
+    }
+    if(studymode && flashcardsdue && flashcardsdue?.length >0){
+      return (
+        <div className="space-y-6 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-hidden" >
+          <div className="flex items-center justify-between" >
+            <div>
+              <h2 className="text-2xl font-bold" >
+                Study Mode 
+              </h2>
+              <p className="text-sm text-muted-foreground" >
+                Card {currentIndex + 1}of {flashcardsdue.length}
+              </p>
+            </div>
+            <Button variant="outline" onClick={()=>{
+              setcurrentIndex(0)
+              setstudymode(false)
+            }} >
+              Exit Study Mode
+            </Button>
+          </div>
+          <FlashcardViewer 
+          onNext={handleNext}
+          onPrevious={handlePrevious}
+          hasNext={currentIndex < flashcardsdue.length -1}
+          hasPrevious={currentIndex > 0}
+          flashcardId={flashcardsdue[currentIndex]._id}
+          />
+        </div>
+      )
+    }
   return (
-    <div className="space-y-6" >
+    <div className="space-y-6  " >
         {/* header */}
         <div className="flex items-center justify-between" >
             <div >
                 <h2 className="text-2xl font-bold" >Flashcards </h2>
                 <p className="text-sm text-muted-foreground" >{flashcards.length}{flashcards.length === 1 ? 'flashcard' : 'flashcards'}</p>
             </div>
-            <div >
+            <div className="flex gap-2" >
+              {flashcards.length > 0 && (
+            <Button onClick={handleStartStudy}>
+              <Play className="h-4 w-4 mr-2" />
+              Start Studying
+            </Button>
+          )}
                 <Button onClick={()=>setOpenCreateFlashcardDialog(true)} >
                     <Plus className="h-4 w-4"/>
                     New Flashcard
@@ -104,11 +165,11 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        // onClick={() => {
-                        //   setCurrentFlashcard(flashcard.id)
-                        //   setCurrentIndex(flashcards.indexOf(flashcard))
-                        //   setStudyMode(true)
-                        // }}
+                        onClick={() => {
+                          setCurrentFlashcard(flashcard._id)
+                          setcurrentIndex(flashcards.indexOf(flashcard))
+                          setstudymode(true)
+                        }}
                       >
                         <Play className="h-4 w-4 mr-2" />
                         Study

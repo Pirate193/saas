@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ModeToggle } from "../themetoggle";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -141,7 +142,12 @@ export function NavUser() {
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator />
-
+              <DropdownMenuGroup>
+                 <DropdownMenuItem>
+                  <ModeToggle />
+                 </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
               {/* Upgrade to Pro */}
               <DropdownMenuGroup>
                 <DropdownMenuItem onClick={() => console.log('open upgrade modal')}>

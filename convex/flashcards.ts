@@ -24,6 +24,12 @@ export const createFlashcard = mutation({
             answers:args.answers,
             isMultipleChoice:args.isMultipleChoice,
             updatedAt:Date.now(),
+            easeFactor:2.5,
+            intervalDays:0,
+            repetitions:0,
+            nextReviewDate: Date.now(),
+            totalReviews:0,
+            correctReviews:0,
         })
         return flashcardId
     }
@@ -102,5 +108,96 @@ export const fetchFlashcards = query({
         }
         const flashcards = await ctx.db.query("flashcards").withIndex("by_folder",(q)=>q.eq("folderId",args.folderId)).collect();
         return flashcards
+    }
+})
+
+export const reviewFlashcard = mutation({
+    args:{
+        flashcardId:v.id("flashcards"),
+        quality:v.number(),
+        timeSpendSeconds:v.optional(v.number()),
+    },
+    handler: async (ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
+        const flashcard = await ctx.db.get(args.flashcardId);
+        if(!flashcard || flashcard.userId !== user.subject){
+            throw new Error("Flashcard not found or access denied.");
+        }
+        const quality = args.quality;
+        let easeFactor = flashcard.easeFactor;
+        let interval = flashcard.intervalDays;
+        let repetitions = flashcard.repetitions;
+        let wasCorrect = true;
+
+        if(quality < 3){
+            easeFactor = Math.max(1.3,easeFactor - 0.2);
+            interval = 0;
+            repetitions = 0;
+            wasCorrect = false;
+        }else {
+            easeFactor = Math.max(1.3,easeFactor +(0.1 -(5-quality)*(0.08 + (5-quality)*0.02)));
+            easeFactor = Number(easeFactor.toFixed(2));
+            repetitions += 1;
+
+            if(repetitions === 1){
+                interval = 1;
+            }else if(repetitions === 2){
+                interval = 6;
+            }else {
+                interval = Math.round(interval * easeFactor);
+            }
+        }
+        const now = Date.now();
+        const nextReviewDate = new Date(now);
+        nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+        nextReviewDate.setHours(0,0,0,0);
+        
+        await ctx.db.patch(args.flashcardId,{
+            easeFactor:easeFactor,
+            intervalDays:interval,
+            repetitions:repetitions,
+            nextReviewDate:nextReviewDate.getTime(),
+            lastReviewedAt:now,
+            totalReviews:flashcard.totalReviews + 1,
+            correctReviews:flashcard.correctReviews + (wasCorrect ? 1 : 0),
+            updatedAt:now,
+        })
+        await ctx.db.insert("flashcardReviews",{
+            userId:user.subject,
+            flashcardId:args.flashcardId,
+            folderId:flashcard.folderId,
+            quality:quality,
+            timeSpendSeconds:args.timeSpendSeconds,
+            wasCorrect:wasCorrect,
+            easeFactorAfter:easeFactor,
+            intervalDaysAfter:interval,
+            reviewedAt:now,
+        })
+        return{
+            easeFactor,
+            intervalDays:interval,
+            repetitions,
+            nextReviewDate:nextReviewDate.getTime()
+        }
+
+    }
+})
+
+export const fetchflashcarddue = query({
+    args:{
+        folderId:v.id("folders"),
+        limit:v.optional(v.number())
+    },
+    handler: async(ctx ,args)=>{
+     const user = await ctx.auth.getUserIdentity();
+     const limit = args.limit || 50;
+
+     const flashcards = await ctx.db.query("flashcards").withIndex("by_next_review",(q)=>q.lte("nextReviewDate",Date.now())).filter((q)=>q.eq(q.field("folderId"),args.folderId)).take(limit);
+     
+     return flashcards;
+
     }
 })

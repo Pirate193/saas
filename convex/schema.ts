@@ -45,9 +45,29 @@ export default defineSchema({
     })),
     isMultipleChoice:v.boolean(),
     updatedAt:v.number(),
+    easeFactor:v.number(), //determins interval growths
+    intervalDays:v.number(),//days untill next review
+    repetitions:v.number(), // consecutive correct answers
+    nextReviewDate:v.number(), // next review
+    lastReviewedAt:v.optional(v.number()), // last time reviewed
+    totalReviews:v.number(), // total reviews
+    correctReviews:v.number(),
    })
    .index("by_user",["userId"])
-   .index("by_folder",["folderId"]),
-
+   .index("by_folder",["folderId"])
+   .index("by_next_review",["nextReviewDate","userId"]),
    //flashcard reviews
+   flashcardReviews:defineTable({
+    userId:v.string(),
+    flashcardId:v.id("flashcards"),
+    folderId:v.id("folders"),
+    quality:v.number(), // 0-5rating
+    wasCorrect:v.boolean(),
+    timeSpendSeconds:v.optional(v.number()),
+    easeFactorAfter:v.number(),
+    intervalDaysAfter:v.number(),
+    reviewedAt:v.number(),
+   })
+   .index("by_user",["userId"])
+   .index("by_flashcard",["flashcardId"]),
 })
