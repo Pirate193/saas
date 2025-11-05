@@ -7,7 +7,6 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
-  User,
 } from "lucide-react";
 
 import {
@@ -33,21 +32,22 @@ import {
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+// 1. REMOVE Dialog imports
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModeToggle } from "../themetoggle";
+
+// 2. IMPORT your new AccountModal
+import { AccountModal } from "./account-modal";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
   const { user, isLoaded } = useUser();
-  const { signOut, openUserProfile } = useClerk();
+  // 3. REMOVE openUserProfile from useClerk()
+  const { signOut } = useClerk();
   const router = useRouter();
-  const [showAccountDialog, setShowAccountDialog] = useState(false);
+  
+  // 4. ADD state to control your modal
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   // Loading state
   if (!isLoaded) {
@@ -84,12 +84,9 @@ export function NavUser() {
     router.push("/");
   };
 
+  // 5. This function now just toggles your modal state
   const handleAccountSettings = () => {
-    // Option 1: Open Clerk's modal
-    openUserProfile();
-    
-    // Option 2: Navigate to custom settings page
-    // router.push('/settings/account');
+    setIsAccountModalOpen(true);
   };
 
   return (
@@ -143,7 +140,7 @@ export function NavUser() {
 
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                 <DropdownMenuItem>
+                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} >
                   <ModeToggle />
                  </DropdownMenuItem>
               </DropdownMenuGroup>
@@ -160,6 +157,7 @@ export function NavUser() {
 
               {/* Settings Options */}
               <DropdownMenuGroup>
+                {/* 6. This now calls your local function */}
                 <DropdownMenuItem onClick={handleAccountSettings}>
                   <BadgeCheck className="mr-2 h-4 w-4" />
                   Account
@@ -188,6 +186,12 @@ export function NavUser() {
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
+
+      {/* 7. Render your modal component here */}
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onOpenChange={setIsAccountModalOpen}
+      />
     </>
   );
 }

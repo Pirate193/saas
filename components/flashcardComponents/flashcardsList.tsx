@@ -5,7 +5,7 @@ import { Id } from "@/convex/_generated/dataModel"
 import { useMutation, useQuery } from "convex/react"
 import { Skeleton } from "../ui/skeleton"
 import { Button } from "../ui/button"
-import { Brain, MoreVertical, Play, Plus, Trash2 } from "lucide-react"
+import { Brain, Folder, MoreVertical, Play, Plus, SlashIcon, Trash2 } from "lucide-react"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu"
@@ -14,6 +14,16 @@ import { useState } from "react"
 import Createflashcard from "./createFlashcard"
 import { toast } from "sonner"
 import FlashcardViewer from "./flashcard-viewer"
+import { SidebarTrigger } from "../ui/sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import Link from "next/link"
 
 interface FlashcardListProps {
     folderId:Id<'folders'>
@@ -30,6 +40,7 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
    const flashcardsdue = useQuery(api.flashcards.fetchflashcarddue,{folderId:folderId})
   
    const [currentFlashcard,setCurrentFlashcard]=useState<Id<'flashcards'> | null>(null)
+   const folder = useQuery(api.folders.getFolderById,{folderId:folderId})
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
@@ -98,8 +109,26 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
     <div className="space-y-6  " >
         {/* header */}
         <div className="flex items-center justify-between" >
-            <div >
-                <h2 className="text-2xl font-bold" >Flashcards </h2>
+            <div className="flex flex-row items-center gap-2" >
+               <SidebarTrigger />
+               <Breadcrumb>
+                    <BreadcrumbList>
+                      <BreadcrumbItem  >
+                        <BreadcrumbLink asChild >
+                          <Link href={`/folders/${folder?._id}`} className="flex items-center gap-2" >
+                          <Folder className="h-4 w-4" />
+                         <span>  {folder?.name} </span> </Link>
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator>
+                        <SlashIcon />
+                      </BreadcrumbSeparator>
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>Flashcards</BreadcrumbPage>
+                      </BreadcrumbItem>
+                      </BreadcrumbList>
+                      </Breadcrumb>
+             
                 <p className="text-sm text-muted-foreground" >{flashcards.length}{flashcards.length === 1 ? 'flashcard' : 'flashcards'}</p>
             </div>
             <div className="flex gap-2" >

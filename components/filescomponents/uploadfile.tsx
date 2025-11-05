@@ -24,14 +24,14 @@ interface FileUplaodStatus {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
-  "image/*",
+  // "image/*",
   "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
-  "text/rtf",
-  "video/mp4",
-  "video/x-msvideo",
+  // "application/msword",
+  // "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  // "text/plain",
+  // "text/rtf",
+  // "video/mp4",
+  // "video/x-msvideo",
 ];
 
 const Uploadfile = ({open,onclose,folderId}:Props) => {
@@ -285,7 +285,7 @@ const handleRemoveFile =(file:File)=>{
                 </div>
               ))}
 
-              {/* Add More Button */}
+              {/* Add More Button
               <Button
                 variant="outline"
                 className="w-full"
@@ -294,7 +294,7 @@ const handleRemoveFile =(file:File)=>{
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add More Files
-              </Button>
+              </Button> */}
             </div>
           )}
         </div>

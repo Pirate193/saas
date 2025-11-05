@@ -21,7 +21,7 @@ const data = {
     },
     {
       title: "Ask AI",
-      url: "#",
+      url: "/Ai",
       icon: Sparkles,
     },
     {

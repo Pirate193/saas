@@ -1,4 +1,3 @@
-
 'use client'
 
 import { api } from "@/convex/_generated/api"
@@ -27,7 +26,11 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
     const [loading, setLoading] = useState(false);
     const [question,setQuestion] = useState("")
     const [isMultipleChoice, setIsMultipleChoice] = useState(false);
-    const [answers, setAnswers] = useState<{ text: string; isCorrect: boolean }[]>([]);
+    
+    // --- FIX #1: Initialize answers with one default item ---
+    const [answers, setAnswers] = useState<{ text: string; isCorrect: boolean }[]>([
+      { text: '', isCorrect: true } // This is the default state for a text-based answer
+    ]);
 
     //function to add answer
     const handleAddAnswer = () => {
@@ -54,6 +57,7 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
                 answer.isCorrect =  i === index
             })
         }else {
+            // For non-multiple choice, allow multiple correct answers
             newAnswers[index].isCorrect = !newAnswers[index].isCorrect
         }
         setAnswers(newAnswers)
@@ -62,6 +66,7 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
     const handleModeToggle = (checked:boolean)=>{
           setIsMultipleChoice(checked);
           if(checked){
+            // When switching TO multiple choice
             if(answers.length < 2){
                 setAnswers([{
                     text:'',
@@ -80,9 +85,10 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
             setAnswers(newAnswer)
           }
           }else{
+            // When switching OFF multiple choice
             setAnswers([{
-                text:answers[0].text||'',
-                isCorrect:true
+                text:answers[0].text||'', // Keep text if it exists
+                isCorrect:true // Default to correct
             }])
           }
     }
@@ -93,7 +99,11 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
             setLoading(false)
             return
         }
-        const validAnswers = answers.filter(a=>a.text.trim())
+        // Filter out answers that are just whitespace
+        const validAnswers = answers
+          .map(a => ({ ...a, text: a.text.trim() }))
+          .filter(a => a.text !== '');
+          
         if(validAnswers.length === 0){
             toast.error("Please enter at least one answer")
             setLoading(false)
@@ -106,9 +116,14 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
         }
         const hasCorrectAnswer = validAnswers.some(a=>a.isCorrect)
         if(!hasCorrectAnswer){
-            toast.error("Please mark at least one answer as correct")
-            setLoading(false)
-            return
+           
+            if (!isMultipleChoice) {
+              validAnswers.forEach(a => a.isCorrect = true);
+            } else {
+              toast.error("Please mark at least one answer as correct");
+              setLoading(false);
+              return;
+            }
         }
         try {
            await createflashcard({
@@ -118,18 +133,20 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
             isMultipleChoice:isMultipleChoice
            }) 
            toast.success("Flashcard created")
-           handleClose()
-           setLoading(false)
+           handleClose() // This will reset state and call onOpenChange(false)
         } catch (error) {
            console.log(error);
            toast.error("Something went wrong")
-           setLoading(false) 
+        } finally {
+            setLoading(false) 
         }
     }
+    
     const handleClose =()=>{
         setQuestion("")
         setIsMultipleChoice(false)
-        setAnswers([])
+        // --- FIX #2: Reset answers to the default state, not an empty array ---
+        setAnswers([{ text: '', isCorrect: true }])
         onOpenChange(false)
     }
   return (
@@ -189,6 +206,20 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
                   Add Option
                 </Button>
               )}
+               {/* --- ADDED THIS --- */}
+               {/* Add Answer button for non-multiple-choice */}
+              {!isMultipleChoice && (
+                 <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddAnswer}
+                  disabled={answers.length >= 6}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Answer
+                </Button>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -215,7 +246,8 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
                   >
                     <Check className="h-4 w-4" />
                   </Button>
-                  {isMultipleChoice && answers.length > 2 && (
+                  {/* Show remove button if there's more than 1 answer */}
+                  {answers.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -229,11 +261,9 @@ const Createflashcard = ({open,onOpenChange,folderId}:CreateflashcardProps) => {
               ))}
             </div>
 
-            {isMultipleChoice && (
-              <p className="text-xs text-muted-foreground">
-                Click the checkmark to mark the correct answer
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {isMultipleChoice && 'You can add up to 6 options.'}
+            </p>
           </div>
         </div>
 

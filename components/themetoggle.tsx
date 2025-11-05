@@ -1,40 +1,42 @@
 "use client"
 
 import * as React from "react"
-import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 export function ModeToggle() {
-  const { setTheme } = useTheme()
+  const { theme, setTheme } = useTheme()
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon">
-          <Sun className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
-          System
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    // This wrapper styles the component to look like a single, joined control
+    <div className="flex items-center w-full justify-center space-x-1 rounded-md bg-muted/60 p-1">
+      <Button
+        // Set variant="secondary" if this is the active theme
+        variant={theme === "light" ? "secondary" : "ghost"}
+        size="sm"
+        onClick={() => setTheme("light")}
+        // These classes make it fit the container
+        className="flex-1 text-xs h-7"
+      >
+        Light
+      </Button>
+      <Button
+        variant={theme === "dark" ? "secondary" : "ghost"}
+        size="sm"
+        onClick={() => setTheme("dark")}
+        className="flex-1 text-xs h-7"
+      >
+        Dark
+      </Button>
+      <Button
+        variant={theme === "system" ? "secondary" : "ghost"}
+        size="sm"
+        onClick={() => setTheme("system")}
+        className="flex-1 text-xs h-7"
+      >
+        System
+      </Button>
+    </div>
   )
 }

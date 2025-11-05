@@ -1,15 +1,33 @@
-
+'use client'
 import PDFViewer from "@/components/filescomponents/pdf-viewer";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { fetchQuery } from "convex/nextjs";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Folder, Sidebar, SlashIcon } from "lucide-react";
 import Link from "next/link";
 import  Image from "next/image";
-const FilePage =  async ({params}:{params:Promise<{fileId:string}>}) => {
-    const {fileId} = await params;
-    const file = await fetchQuery(api.files.getFile,{fileId:fileId as Id<'files'>})
+import { Input } from "@/components/ui/input";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { useParams } from "next/navigation";
+import { useQuery } from "convex/react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { useState } from "react";
+const FilePage =  () => {
+    const params = useParams();
+    const fileId = params.fileId
+    const file = useQuery(api.files.getFile,{fileId:fileId as Id<'files'>})
+    const folder = useQuery(api.folders.getFolderById,{folderId:file?.file.folderId as Id<'folders'>})
+    const [openchat,setopenchat]=useState(false)
 
     if(!file){
       return(
@@ -42,7 +60,7 @@ const FilePage =  async ({params}:{params:Promise<{fileId:string}>}) => {
          default:
                 return(
                     <div className='text-center py-12'>
-                        <p className='text-gray-100 mb-4'>
+                        <p className=' mb-4'>
                             Preview not available yet for this file type 
                         </p>
                         <Button asChild >
@@ -56,8 +74,72 @@ const FilePage =  async ({params}:{params:Promise<{fileId:string}>}) => {
       }
     }
   return (
-    <div >
-      {renderFileView()}
+     <div className="flex flex-col h-screen overflow-hidden">
+      {/* 1. Page Header (Placeholder) */}
+      <div className="h-14 w-full border-b flex items-center justify-between px-4 shrink-0">
+         <div className="flex flex-row gap-2 items-center" >
+          <SidebarTrigger/>
+        <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem  >
+          <BreadcrumbLink asChild >
+            <Link href={`/folders/${folder?._id}`} className="flex items-center gap-2" >
+            <Folder className="h-4 w-4" />
+           <span>  {folder?.name} </span> </Link>
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator>
+          <SlashIcon />
+        </BreadcrumbSeparator>
+        <BreadcrumbItem>
+          <BreadcrumbPage>{file.file.fileName}</BreadcrumbPage>
+        </BreadcrumbItem>
+        </BreadcrumbList>
+        </Breadcrumb>
+         </div>
+        <div className="text-sm text-muted-foreground">
+           
+        </div>
+      </div>
+
+      {/* 2. Resizable Content Area */}
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          {/* Left Panel: PDF Viewer */}
+          <ResizablePanel defaultSize={60} minSize={30}>
+            {/* This div ensures the PDF viewer scales correctly within the panel */}
+            <div className="h-full w-full">{renderFileView()}</div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Right Panel: AI Chat  */}
+          <ResizablePanel defaultSize={40} minSize={30}>
+            <div className="flex flex-col h-full border-l">
+              <div className="h-14 border-b flex items-center px-4">
+                <h2 className="font-semibold">AI Chat</h2>
+              </div>
+              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                {/* Placeholder messages matching your sketch */}
+                <div className="p-3 bg-muted rounded-lg max-w-[80%] w-fit">
+                  <p className="text-sm">msg: Hello! Ask me anything about this document.</p>
+                </div>
+                <div className="flex justify-end">
+                  <div className="p-3 bg-primary text-primary-foreground rounded-lg max-w-[80%] w-fit">
+                    <p className="text-sm">msg: What is the main topic?</p>
+                  </div>
+                </div>
+                 <div className="p-3 bg-muted rounded-lg max-w-[80%] w-fit">
+                  <p className="text-sm">msg: Let me check...</p>
+                </div>
+              </div>
+              <div className="p-4 border-t bg-background">
+                <Input placeholder="Ask a question..." />
+              </div>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   )
 }

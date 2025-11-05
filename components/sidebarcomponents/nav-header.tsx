@@ -7,8 +7,8 @@ const Navheader = () => {
     const user = useQuery(api.user.getCurrentUser);
   return (
     <div>
-        <p>
-            Hi {user?.name}
+        <p className='text-xl font-bold' >
+            Hi ,{user?.name}
         </p>
     </div>
   )

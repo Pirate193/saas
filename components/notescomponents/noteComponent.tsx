@@ -105,7 +105,7 @@ const NoteComponent = ({ noteId }: NoteComponentProps) => {
   }
 
   return (
-      <div className="flex-1 p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:bg-[#1f1f1f]   ">
+      <div className="relative flex-1 p-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden   ">
         <BlocknoteEditor
           initialContent={note.content || ""}
           onChangeContent={handleContentChange}

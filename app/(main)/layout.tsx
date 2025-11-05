@@ -1,12 +1,8 @@
-import { BreadcrumbComponent } from "@/components/Breadcrumbs";
 import { AppSidebar } from "@/components/sidebarcomponents/app-sidebar";
 import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { SignedIn } from "@clerk/nextjs";
+  SidebarInset,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
 import { Toaster } from "sonner";
 
 export default function MainLayout({
@@ -15,12 +11,12 @@ export default function MainLayout({
   children: React.ReactNode;
 }>) {
   return (
-     <SidebarProvider>
-      <AppSidebar />
+    // Add h-svh (screen viewport height) and overflow-hidden
+    <SidebarProvider className="h-svh overflow-hidden">
+      <AppSidebar variant="inset" />
+
       <SidebarInset>
-         <main>
-          {children}
-          </main>
+        {children}
         <Toaster />
       </SidebarInset>
     </SidebarProvider>
