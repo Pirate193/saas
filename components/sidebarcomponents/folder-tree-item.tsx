@@ -11,6 +11,7 @@ import {
   FileText,
   CreditCard,
   File as FileIcon,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Id } from "@/convex/_generated/dataModel";
@@ -30,6 +31,7 @@ import UpdateDialog from "../folderscomponents/update-folder";
 import NoteItem from "../notescomponents/noteItem";
 import Uploadfile from "../filescomponents/uploadfile";
 import Createflashcard from "../flashcardComponents/createFlashcard";
+import FlashcardAIGenerateDialog from "../flashcardComponents/ai-flashcard";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -122,6 +124,7 @@ export function FolderTreeItem({
   const [UpdateDialogOpen, setUpdateDialogOpen] = useState(false); //update dialog state
   const [openUploadDialog,setOpenUploadDialog] = useState(false); //upload dialog state
   const [openCreateFlashcardDialog,setOpenCreateFlashcardDialog] = useState(false); //create flashcard dialog state
+  const [openAiFlashcardDialog,setOpenAiFlashcardDialog] = useState(false); //ai flashcard dialog state
   // ============================================
   // EVENT HANDLERS
   // ============================================
@@ -262,6 +265,10 @@ export function FolderTreeItem({
                 <CreditCard className="h-4 w-4 mr-2" />
                 New Flashcard
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={()=>setOpenAiFlashcardDialog(true)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                AI Flashcard
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={()=>setOpenUploadDialog(true)}>
                 <FileIcon className="h-4 w-4 mr-2" />
                 Upload File
@@ -388,6 +395,11 @@ export function FolderTreeItem({
       <Createflashcard
       open={openCreateFlashcardDialog}
       onOpenChange={setOpenCreateFlashcardDialog}
+      folderId={folder._id}
+      />
+      <FlashcardAIGenerateDialog
+      open={openAiFlashcardDialog}
+      onOpenChange={setOpenAiFlashcardDialog}
       folderId={folder._id}
       />
     </div>

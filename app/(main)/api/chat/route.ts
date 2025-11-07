@@ -104,6 +104,7 @@ const tools = createTools(convex);
     stopWhen:stepCountIs(10)
   });
 
+  console.log('result', result);
   // send sources and reasoning back to the client
   return result.toUIMessageStreamResponse({
     sendSources: true,
@@ -268,5 +269,38 @@ function createTools(convex: ConvexHttpClient) {
       }
     }
   }),
+  getFlashcard: tool({
+   description: 'Get detailed information about a specific flashcard including its question, answers, and performance statistics. Use this to understand how the student is performing on specific flashcards.',
+      inputSchema: z.object({
+        flashcardId: z.string().describe('The flashcard ID to fetch'),
+      }),
+      execute: async ({ flashcardId }) => {
+        try {
+          const flashcard = await convex.query(api.flashcards.getFlashcard, {
+            flashcardId: flashcardId as Id<'flashcards'>,
+          });
+          
+          const successRate = flashcard.totalReviews > 0
+            ? Math.round((flashcard.correctReviews / flashcard.totalReviews) * 100)
+            : 0;
+          
+          return {
+            success: true,
+            flashcard,
+            stats: {
+              successRate: `${successRate}%`,
+              totalReviews: flashcard.totalReviews,
+              correctReviews: flashcard.correctReviews,
+              isStruggling: successRate < 50 && flashcard.totalReviews >= 3,
+            }
+          };
+        } catch (error) {
+          return {
+            success: false,
+            error: `Failed to fetch flashcard: ${error}`,
+          };
+        }
+      }
+  })
 }
 }

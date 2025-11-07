@@ -22,6 +22,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { useState } from "react";
+import Chatwithpdf from "@/components/filescomponents/chatwithpdf";
 const FilePage =  () => {
     const params = useParams();
     const fileId = params.fileId
@@ -75,7 +76,7 @@ const FilePage =  () => {
     }
   return (
      <div className="flex flex-col h-screen overflow-hidden">
-      {/* 1. Page Header (Placeholder) */}
+    
       <div className="h-14 w-full border-b flex items-center justify-between px-4 shrink-0">
          <div className="flex flex-row gap-2 items-center" >
           <SidebarTrigger/>
@@ -116,26 +117,7 @@ const FilePage =  () => {
           {/* Right Panel: AI Chat  */}
           <ResizablePanel defaultSize={40} minSize={30}>
             <div className="flex flex-col h-full border-l">
-              <div className="h-14 border-b flex items-center px-4">
-                <h2 className="font-semibold">AI Chat</h2>
-              </div>
-              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
-                {/* Placeholder messages matching your sketch */}
-                <div className="p-3 bg-muted rounded-lg max-w-[80%] w-fit">
-                  <p className="text-sm">msg: Hello! Ask me anything about this document.</p>
-                </div>
-                <div className="flex justify-end">
-                  <div className="p-3 bg-primary text-primary-foreground rounded-lg max-w-[80%] w-fit">
-                    <p className="text-sm">msg: What is the main topic?</p>
-                  </div>
-                </div>
-                 <div className="p-3 bg-muted rounded-lg max-w-[80%] w-fit">
-                  <p className="text-sm">msg: Let me check...</p>
-                </div>
-              </div>
-              <div className="p-4 border-t bg-background">
-                <Input placeholder="Ask a question..." />
-              </div>
+             <Chatwithpdf fileId={file.file._id}/>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>

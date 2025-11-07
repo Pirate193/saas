@@ -78,7 +78,7 @@ const PDFViewer = ({ fileUrl, fileName }: PDFViewerProps) => {
   return (
     <div className='w-full h-full bg-background rounded-md flex flex-col items-center'>
       
-      {/* Header / Toolbar (No changes) */}
+      {/* Header / Toolbar  */}
       <div className='h-14 w-full border-b border-border flex items-center justify-between px-2 gap-2 shrink-0'>
        <div className='flex items-center gap-1'>
         <Button

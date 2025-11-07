@@ -1,20 +1,56 @@
-'use client'
+"use client";
 
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
-import { useMutation, useQuery } from "convex/react"
-import { Skeleton } from "../ui/skeleton"
-import { Button } from "../ui/button"
-import { Brain, Folder, MoreVertical, Play, Plus, SlashIcon, Trash2 } from "lucide-react"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog"
-import { useState } from "react"
-import Createflashcard from "./createFlashcard"
-import { toast } from "sonner"
-import FlashcardViewer from "./flashcard-viewer"
-import { SidebarTrigger } from "../ui/sidebar"
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import { Skeleton } from "../ui/skeleton";
+import { Button } from "../ui/button";
+import {
+  Brain,
+  Folder,
+  MoreVertical,
+  Play,
+  Plus,
+  SlashIcon,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../ui/empty";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
+import { useState } from "react";
+import Createflashcard from "./createFlashcard";
+import { toast } from "sonner";
+import FlashcardViewer from "./flashcard-viewer";
+import { SidebarTrigger } from "../ui/sidebar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,152 +58,177 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import Link from "next/link"
+} from "@/components/ui/breadcrumb";
+import Link from "next/link";
+import FlashcardAIGenerateDialog from "./ai-flashcard";
 
 interface FlashcardListProps {
-    folderId:Id<'folders'>
+  folderId: Id<"folders">;
 }
 
-export default function FlashcardList({folderId}:FlashcardListProps) {
-    const flashcards = useQuery(api.flashcards.fetchFlashcards,{folderId:folderId})
-    const deleteFlashcard = useMutation(api.flashcards.deleteFlashcard)
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-    const [flashcardToDelete, setFlashcardToDelete] = useState<Id<'flashcards'> | null>(null)
-    const [openCreateFlashcardDialog,setOpenCreateFlashcardDialog] = useState(false)
-    const [studymode,setstudymode]=useState(false)
-    const [currentIndex,setcurrentIndex]=useState(0)
-   const flashcardsdue = useQuery(api.flashcards.fetchflashcarddue,{folderId:folderId})
-  
-   const [currentFlashcard,setCurrentFlashcard]=useState<Id<'flashcards'> | null>(null)
-   const folder = useQuery(api.folders.getFolderById,{folderId:folderId})
+export default function FlashcardList({ folderId }: FlashcardListProps) {
+  const flashcards = useQuery(api.flashcards.fetchFlashcards, {
+    folderId: folderId,
+  });
+  const deleteFlashcard = useMutation(api.flashcards.deleteFlashcard);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [flashcardToDelete, setFlashcardToDelete] =
+    useState<Id<"flashcards"> | null>(null);
+  const [openCreateFlashcardDialog, setOpenCreateFlashcardDialog] =
+    useState(false);
+  const [studymode, setstudymode] = useState(false);
+  const [currentIndex, setcurrentIndex] = useState(0);
+  const flashcardsdue = useQuery(api.flashcards.fetchflashcarddue, {
+    folderId: folderId,
+  });
+  const [openAiFlashcards, setOpenAiFlashcards] = useState(false);
+
+  const [currentFlashcard, setCurrentFlashcard] =
+    useState<Id<"flashcards"> | null>(null);
+  const folder = useQuery(api.folders.getFolderById, { folderId: folderId });
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      setcurrentIndex(currentIndex - 1)
+      setcurrentIndex(currentIndex - 1);
     }
+  };
+  const handleDelete = async () => {
+    if (!flashcardToDelete) return;
+    await deleteFlashcard({ flashcardId: flashcardToDelete });
+    setDeleteDialogOpen(false);
+    setFlashcardToDelete(null);
+  };
+  if (flashcards === undefined || flashcardsdue === undefined) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
   }
-    const handleDelete =async ()=>{
-        if(!flashcardToDelete) return
-        await deleteFlashcard({flashcardId:flashcardToDelete})
-        setDeleteDialogOpen(false)
-        setFlashcardToDelete(null)
-    }
-    if(flashcards === undefined || flashcardsdue === undefined){
-        return (
-            <div className="space-y-4" >
-                <Skeleton className="h-12 w-full"/>
-                <Skeleton className="h-32 w-full"/>
-                <Skeleton className="h-32 w-full"/>
-            </div>
-        )
-    }
-    const handleNext = () => {
+  const handleNext = () => {
     if (currentIndex < flashcardsdue?.length - 1) {
-      setcurrentIndex(currentIndex + 1)
+      setcurrentIndex(currentIndex + 1);
     }
-  }
-    const handleStartStudy = async ()=>{
-      if(flashcardsdue && flashcardsdue?.length >0){
-        setcurrentIndex(0)
-        setstudymode(true)
-      }else{
-        toast.info('No cards due for review right now ')
-      }
-
+  };
+  const handleStartStudy = async () => {
+    if (flashcardsdue && flashcardsdue?.length > 0) {
+      setcurrentIndex(0);
+      setstudymode(true);
+    } else {
+      toast.info("No cards due for review right now ");
     }
-    if(studymode && flashcardsdue && flashcardsdue?.length >0){
-      return (
-        <div className="space-y-6 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-hidden" >
-          <div className="flex items-center justify-between" >
-            <div>
-              <h2 className="text-2xl font-bold" >
-                Study Mode 
-              </h2>
-              <p className="text-sm text-muted-foreground" >
-                Card {currentIndex + 1}of {flashcardsdue.length}
-              </p>
-            </div>
-            <Button variant="outline" onClick={()=>{
-              setcurrentIndex(0)
-              setstudymode(false)
-            }} >
-              Exit Study Mode
-            </Button>
+  };
+  if (studymode && flashcardsdue && flashcardsdue?.length > 0) {
+    return (
+      <div className="space-y-6 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-hidden">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Study Mode</h2>
+            <p className="text-sm text-muted-foreground">
+              Card {currentIndex + 1}of {flashcardsdue.length}
+            </p>
           </div>
-          <FlashcardViewer 
+          <Button
+            variant="outline"
+            onClick={() => {
+              setcurrentIndex(0);
+              setstudymode(false);
+            }}
+          >
+            Exit Study Mode
+          </Button>
+        </div>
+        <FlashcardViewer
           onNext={handleNext}
           onPrevious={handlePrevious}
-          hasNext={currentIndex < flashcardsdue.length -1}
+          hasNext={currentIndex < flashcardsdue.length - 1}
           hasPrevious={currentIndex > 0}
           flashcardId={flashcardsdue[currentIndex]._id}
-          />
-        </div>
-      )
-    }
+        />
+      </div>
+    );
+  }
   return (
-    <div className="space-y-6  " >
-        {/* header */}
-        <div className="flex items-center justify-between" >
-            <div className="flex flex-row items-center gap-2" >
-               <SidebarTrigger />
-               <Breadcrumb>
-                    <BreadcrumbList>
-                      <BreadcrumbItem  >
-                        <BreadcrumbLink asChild >
-                          <Link href={`/folders/${folder?._id}`} className="flex items-center gap-2" >
-                          <Folder className="h-4 w-4" />
-                         <span>  {folder?.name} </span> </Link>
-                        </BreadcrumbLink>
-                      </BreadcrumbItem>
-                      <BreadcrumbSeparator>
-                        <SlashIcon />
-                      </BreadcrumbSeparator>
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>Flashcards</BreadcrumbPage>
-                      </BreadcrumbItem>
-                      </BreadcrumbList>
-                      </Breadcrumb>
-             
-                <p className="text-sm text-muted-foreground" >{flashcards.length}{flashcards.length === 1 ? 'flashcard' : 'flashcards'}</p>
-            </div>
-            <div className="flex gap-2" >
-              {flashcards.length > 0 && (
+    <div className="space-y-6 overflow-y-auto ">
+      {/* header */}
+      <div className="flex items-center justify-between">
+        <div className="flex flex-row items-center gap-2">
+          <SidebarTrigger />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink asChild>
+                  <Link
+                    href={`/folders/${folder?._id}`}
+                    className="flex items-center gap-2"
+                  >
+                    <Folder className="h-4 w-4" />
+                    <span> {folder?.name} </span>{" "}
+                  </Link>
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator>
+                <SlashIcon />
+              </BreadcrumbSeparator>
+              <BreadcrumbItem>
+                <BreadcrumbPage>Flashcards</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <p className="text-sm text-muted-foreground">
+            {flashcards.length}
+            {flashcards.length === 1 ? "flashcard" : "flashcards"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {flashcards.length > 0 && (
             <Button onClick={handleStartStudy}>
               <Play className="h-4 w-4 mr-2" />
               Start Studying
             </Button>
           )}
-                <Button onClick={()=>setOpenCreateFlashcardDialog(true)} >
-                    <Plus className="h-4 w-4"/>
-                    New Flashcard
-                </Button>
+          <Button onClick={() => setOpenAiFlashcards(true)}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            AI Flashcard
+          </Button>
+          <Button onClick={() => setOpenCreateFlashcardDialog(true)}>
+            <Plus className="h-4 w-4" />
+            New Flashcard
+          </Button>
+        </div>
+      </div>
+      {flashcards.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Brain />
+            </EmptyMedia>
+            <EmptyTitle>No Flashcards Yet</EmptyTitle>
+            <EmptyDescription>
+              You haven&apos;t created any flashcards yet. Get started by
+              creating your first flashcard.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <div className="flex ">
+              <Button onClick={() => setOpenCreateFlashcardDialog(true)}>
+                Create Flashcard
+              </Button>
             </div>
-        </div>
-        {flashcards.length === 0 ?(
-            <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Brain />
-        </EmptyMedia>
-        <EmptyTitle>No Flashcards Yet</EmptyTitle>
-        <EmptyDescription>
-          You haven&apos;t created any flashcards yet. Get started by creating
-          your first flashcard.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <div className="flex ">
-          <Button onClick={()=>setOpenCreateFlashcardDialog(true)} >Create Flashcard</Button>
-        </div>
-      </EmptyContent>
-    </Empty>
-        ):(
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" >
-                {flashcards.map((flashcard)=>(
-                    <Card key={flashcard._id} className="hover:shadow-md transition-shadow" >
-                      <CardHeader>
-                          <div className="flex items-start justify-between">
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {flashcards.map((flashcard) => (
+            <Card
+              key={flashcard._id}
+              className="hover:shadow-md transition-shadow"
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-base line-clamp-2">
                       {flashcard.question}
@@ -195,9 +256,9 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
                         onClick={() => {
-                          setCurrentFlashcard(flashcard._id)
-                          setcurrentIndex(flashcards.indexOf(flashcard))
-                          setstudymode(true)
+                          setCurrentFlashcard(flashcard._id);
+                          setcurrentIndex(flashcards.indexOf(flashcard));
+                          setstudymode(true);
                         }}
                       >
                         <Play className="h-4 w-4 mr-2" />
@@ -206,8 +267,8 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
                       <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => {
-                          setFlashcardToDelete(flashcard._id)
-                          setDeleteDialogOpen(true)
+                          setFlashcardToDelete(flashcard._id);
+                          setDeleteDialogOpen(true);
                         }}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
@@ -220,8 +281,8 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
               <CardContent>
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground">
-                    {flashcard.answers.length}{' '}
-                    {flashcard.answers.length === 1 ? 'answer' : 'answers'}
+                    {flashcard.answers.length}{" "}
+                    {flashcard.answers.length === 1 ? "answer" : "answers"}
                   </p>
                   {flashcard.isMultipleChoice && (
                     <div className="space-y-1">
@@ -244,35 +305,42 @@ export default function FlashcardList({folderId}:FlashcardListProps) {
                     </div>
                   )}
                 </div>
-                  </CardContent>
-                    </Card>
-                ))}
-
-            </div>
-        )}
-           <Createflashcard 
-      open={openCreateFlashcardDialog}
-      onOpenChange={setOpenCreateFlashcardDialog}
-      folderId={folderId}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+      <Createflashcard
+        open={openCreateFlashcardDialog}
+        onOpenChange={setOpenCreateFlashcardDialog}
+        folderId={folderId}
       />
-         {/* Delete Confirmation Dialog */}
+      <FlashcardAIGenerateDialog
+        open={openAiFlashcards}
+        onOpenChange={setOpenAiFlashcards}
+        folderId={folderId}
+      />
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Flashcard</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this flashcard? This action cannot be undone.
+              Are you sure you want to delete this flashcard? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-   
     </div>
-  )
+  );
 }
