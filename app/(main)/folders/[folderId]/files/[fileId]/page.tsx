@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { useState } from "react";
 import Chatwithpdf from "@/components/filescomponents/chatwithpdf";
+import extractTextFromPDF from "@/lib/pdfparse";
 const FilePage =  () => {
     const params = useParams();
     const fileId = params.fileId
@@ -99,7 +100,9 @@ const FilePage =  () => {
         </Breadcrumb>
          </div>
         <div className="text-sm text-muted-foreground">
-           
+            <Button onClick={()=>extractTextFromPDF(file.fileurl as string)} >
+              press me
+            </Button>
         </div>
       </div>
 

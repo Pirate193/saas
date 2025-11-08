@@ -1,6 +1,6 @@
 'use client'
 import { api } from "@/convex/_generated/api"
-import { useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog"
 import { useCallback, useRef, useState } from "react"
 import { Input } from "../ui/input"
@@ -41,6 +41,7 @@ const Uploadfile = ({open,onclose,folderId}:Props) => {
    const [files,setFiles]=useState<FileUplaodStatus[]>([]);
    const [isUplaoding, setIsUplaoding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+ 
   const [isloading, setIsloading] = useState(false);
     
   //validate file
@@ -103,7 +104,7 @@ const uploadSingleFile = async (fileStatus:FileUplaodStatus):Promise<void>=>{
             throw new Error("Failed to upload file");
         }
         const {storageId}= await result.json();
-        await upload({
+        const fileuploaded = await upload({
             folderId:folderId,
             fileName:file.name,
             fileType:file.type,

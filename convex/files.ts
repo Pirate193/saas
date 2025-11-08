@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
+
 
 export const generateUploadUrl = mutation({
   handler: async (ctx) => {
@@ -26,9 +28,42 @@ export const uploadFile = mutation({
             fileType:args.fileType,
             storageId:args.storageId
         })
-        return file;
+        const fileurl = await ctx.storage.getUrl(args.storageId)
+        // const text = extractTextFromPDF(fileurl as string);
+        
+        return fileurl;
     }
 })
+
+// export const upload = action({
+//     args:{
+//          folderId:v.optional(v.id("folders")),
+//          fileName:v.string(),
+//          fileType:v.string(),
+//          storageId:v.id("_storage")
+//     },
+//     handler:async (ctx ,args)=>{
+//         const user = await ctx.auth.getUserIdentity();
+//         if(!user){
+//             throw new Error("Not authenticated");
+//         }
+//         const uploadfile = await ctx.runMutation(api.files.uploadFile,{
+//             folderId:args.folderId,
+//             fileName:args.fileName,
+//             fileType:args.fileType,
+//             storageId:args.storageId
+//         })
+//         const fileurl = await ctx.storage.getUrl(args.storageId);
+//         const text =  extractTextFromPDF(fileurl as string);
+//         const rag = await ctx.runAction(api.rag.addFile,{
+//             folderId:args.folderId,
+//             fileId:uploadfile.id,
+//             text:text,
+//             fileName:args.fileName,
+//         })
+//     }
+
+// })
 
 export const fetchfiles = query({
     args:{

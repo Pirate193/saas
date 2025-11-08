@@ -101,7 +101,7 @@ const tools = createTools(convex);
     messages: convertToModelMessages(messages),
     system:system,
     tools,
-    stopWhen:stepCountIs(10)
+    stopWhen:stepCountIs(10),
   });
 
   console.log('result', result);
