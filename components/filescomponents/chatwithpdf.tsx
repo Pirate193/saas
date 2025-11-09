@@ -16,6 +16,10 @@ import { useAuth } from '@clerk/nextjs';
 import extractTextFromPDF from '@/lib/pdfparse';
 import { useThreadMessages, useUIMessages } from "@convex-dev/agent/react";
 import { toUIMessages, type UIMessage } from "@convex-dev/agent";
+import { set } from 'date-fns';
+import { title } from 'process';
+import { error } from 'console';
+import { toast } from 'sonner';
 interface ChatwithpdfProps {
     fileId:Id<'files'>;
 }
@@ -24,25 +28,43 @@ const Chatwithpdf = ({fileId}:ChatwithpdfProps) => {
     const [input,setInput]=useState('');
     const folder = useQuery(api.folders.getFolderById,{
         folderId:file?.file.folderId as Id<'folders'>});
-    const {messages,sendMessage,status,regenerate,error}=useChat({
-    });
+    // const {messages,sendMessage,status,regenerate,error}=useChat({
+    // });
     const [threadId,setThreadId]=useState<string>('');
-    
+    const [loading,setLoading]=useState(false);
+    const hasCreatedThread = useRef(false);
     const chat = useAction(api.ai.chat);
      const createThread = useMutation(api.ai.createThread)
-    const {results,status:streamStatus}=useThreadMessages(api.ai.listmessages,
+    const {results,status}=useThreadMessages(api.ai.listmessages,
        threadId ? { threadId } :'skip',
       {initialNumItems:10, stream:true}
     )
     const uimessages = toUIMessages(results)
      const { getToken } = useAuth();
+       useEffect(()=>{
+      if(!threadId && !hasCreatedThread.current){
+        hasCreatedThread.current = true;
+        createThread().then((result)=>{
+          setThreadId(result.threadId);
+        }).catch((error)=>{
+          console.error('Error creating thread:',error);
+          hasCreatedThread.current = false;
+        })
+      }
+    },[threadId,createThread])
 
     const handleSubmit =async(message:PromptInputMessage)=>{
+      setLoading(true);
+          setInput('');
       const hasText = Boolean(message.text);
       const hasAttachments = Boolean(message.files?.length);
       if(!(hasText || hasAttachments)){
         return;
       }
+      if(!threadId){
+        return;
+      }
+ try{
       const text = await extractTextFromPDF(file?.fileurl as string);
       const token = await getToken({template:'convex'});
       const prompt =`
@@ -55,26 +77,32 @@ const Chatwithpdf = ({fileId}:ChatwithpdfProps) => {
         message:prompt
       })
 
-      sendMessage(
-        {
-          text:prompt,
-          files:message.files
-        },{
-          body:{
-            webSearch:false,
-            contextFolder:folder,
-            convexToken:token
-          }
-        }
-      )
-
-      setInput('');
+      // sendMessage(
+      //   {
+      //     text:prompt,
+      //     files:message.files
+      //   },{
+      //     body:{
+      //       webSearch:false,
+      //       contextFolder:folder,
+      //       convexToken:token
+      //     }
+      //   }
+      // )
+    }catch(error){
+      console.error('Error sending message:',error);
+      toast.error('Failed to send message');
+    }finally{
+     setLoading(false);
+    }
+      
+  
     }
   return (
     <div className='flex flex-col h-full overflow-y-auto scrollbar-hidden' >
       <Conversation>
         <ConversationContent>
-          {messages.map((message)=>(
+          {uimessages.map((message)=>(
             <div key={message.id} >
             {message.parts.map((part,i)=>{
               if(part.type === 'text'){
@@ -90,7 +118,7 @@ const Chatwithpdf = ({fileId}:ChatwithpdfProps) => {
                     {message.role === 'assistant' && (
                       <Actions>
                         <Action
-                        onClick={()=>regenerate()}
+                        // onClick={()=>regenerate()}
                         >
                           <RefreshCcwIcon className='size-3' />
                         </Action>
@@ -109,7 +137,7 @@ const Chatwithpdf = ({fileId}:ChatwithpdfProps) => {
                   <Reasoning
                    key={`${message.id}-${i}`}
                     className="w-full"
-                          isStreaming={status === 'streaming' && i === message.parts.length - 1 && message.id === messages.at(-1)?.id}
+                          isStreaming={message.status === 'streaming' && i === message.parts.length - 1 && message.id === uimessages[uimessages.length - 1].id}
                    >
                     <ReasoningTrigger />
                     <ReasoningContent>
@@ -121,7 +149,7 @@ const Chatwithpdf = ({fileId}:ChatwithpdfProps) => {
             })}
             </div>
           ))}
-          {status === 'submitted' && <Shimmer>Thinking...</Shimmer>}
+          {loading&& <Shimmer>Thinking...</Shimmer>}
         </ConversationContent>
       </Conversation>
       <PromptInput onSubmit={handleSubmit} >
@@ -150,7 +178,7 @@ const Chatwithpdf = ({fileId}:ChatwithpdfProps) => {
 
           </PromptInputTools>
           {/* send button */}
-          <PromptInputSubmit disabled={!input && !status} status={status} />
+          <PromptInputSubmit disabled={!input && loading} />
         </PromptInputFooter>
       </PromptInput>
 

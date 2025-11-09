@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { title } from "process";
 
 
 export default defineSchema({
@@ -70,4 +71,25 @@ export default defineSchema({
    })
    .index("by_user",["userId"])
    .index("by_flashcard",["flashcardId"]),
+
+   //chat table
+   chats:defineTable({
+    userId:v.string(),
+    title:v.string()
+   })
+   .index("by_user",["userId"])
+   .index("by_title",["title"]),
+   
+   //messages table
+   messages:defineTable({
+    chatId:v.id("chats"),
+    userId:v.string(),
+    role:v.string(),
+    content:v.string(),
+    parts:v.any()
+   })
+   .index("by_chat",["chatId"]),
+
+   
+
 })

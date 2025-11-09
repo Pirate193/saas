@@ -8,7 +8,7 @@ import { paginationOptsValidator } from "convex/server";
 const agent = new Agent(components.agent,{
     name:'ai',
     languageModel:google('gemini-2.5-flash'),
-    instructions:'',
+    instructions:'You are a helpful assistant.',
     maxSteps:10,
 })
 

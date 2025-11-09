@@ -9,6 +9,7 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as chat from "../chat.js";
 import type * as files from "../files.js";
 import type * as flashcards from "../flashcards.js";
 import type * as folders from "../folders.js";
@@ -32,6 +33,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  chat: typeof chat;
   files: typeof files;
   flashcards: typeof flashcards;
   folders: typeof folders;
