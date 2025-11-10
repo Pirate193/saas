@@ -1,3 +1,4 @@
+import AiModal from "@/components/ai/aimodal";
 import { AppSidebar } from "@/components/sidebarcomponents/app-sidebar";
 import {
   SidebarInset,
@@ -18,6 +19,7 @@ export default function MainLayout({
       <SidebarInset>
         {children}
         <Toaster />
+        <AiModal />
       </SidebarInset>
     </SidebarProvider>
   );

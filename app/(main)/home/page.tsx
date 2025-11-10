@@ -5,6 +5,9 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Folderlist } from "@/components/folderscomponents/folderlist";
+import { AiTriggerButton } from "@/components/ai/aiModaltrigger";
+
+
 
 export default function HomePage() {
   return (
@@ -23,6 +26,7 @@ export default function HomePage() {
         </TabsList>
         <TabsContent value="All">
           <Folderlist />
+          <AiTriggerButton />
         </TabsContent> 
         <TabsContent value="Shared With you">shared with you </TabsContent>
         <TabsContent value="Owned By You"> owned by you</TabsContent>

@@ -143,7 +143,7 @@ const Chat = ({ chatId }: Props) => {
       }));
       
       setMessages(transformedMessages);
-      console.log('📥 Loaded messages from Convex:', transformedMessages.length);
+      console.log(' Loaded messages from Convex:', transformedMessages.length);
     }
   }, [initialMessages, setMessages]);
  
