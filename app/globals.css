@@ -4,6 +4,7 @@
 @source "../node_modules/@blocknote/shadcn";
 
 @custom-variant dark (&:is(.dark *));
+@source "../node_modules/streamdown/dist/index.js";
 
 @theme inline {
   --color-background: var(--background);

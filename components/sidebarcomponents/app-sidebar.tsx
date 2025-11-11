@@ -5,6 +5,7 @@ import { NavMain } from "./Nav-main";
 import { NavUser } from "./nav-user";
 import Navfolders from "./nav-folders";
 import Navheader from "./nav-header";
+import { usePathname } from 'next/navigation';
 
 
 const data = {
@@ -39,11 +40,25 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname(); // <-- 2. Get the current path
+
+  // 3. Create a new array with `isActive` property
+  const navItemsWithActive = data.navMain.map(item => {
+    // Check if the item's URL is a non-hash link and if the current path starts with it.
+    // This makes '/Ai' active even if the URL is '/Ai/123-chat-id'
+    const isActive =
+      item.url !== '#' && pathname.startsWith(item.url);
+
+    return {
+      ...item,
+      isActive: isActive,
+    };
+  });
     return (
         <Sidebar {...props} className="bg-mysidebar" >
             <SidebarHeader>
                <Navheader />
-               <NavMain items={data.navMain} />
+               <NavMain items={navItemsWithActive} />
             </SidebarHeader>
             <SidebarContent className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden" >
               <Navfolders />

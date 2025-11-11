@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter, useParams } from 'next/navigation';
 import {
@@ -19,6 +19,8 @@ export function ChatHistoryPopover() {
   const params = useParams();
   const {setActiveChatId,activeChatId}=useAiStore()
   const chatId = params.chatId as Id<'chats'>;
+  const deletechat= useMutation(api.chat.deleteChat);
+  const updateChat = useMutation(api.chat.updateChat);
 
   const currentChat = chats?.find(c => c._id === chatId);
   const otherChats = chats?.filter(c => c._id !== chatId).reverse(); // Show newest first

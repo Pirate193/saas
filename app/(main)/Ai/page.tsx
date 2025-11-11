@@ -6,6 +6,10 @@ import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
 import {
   PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
   PromptInputAttachment,
   PromptInputAttachments,
   PromptInputBody,
@@ -33,17 +37,35 @@ import { nanoid } from 'nanoid';
 import { Doc } from '@/convex/_generated/dataModel';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ChatHistoryPopover } from '@/components/ai/chathistorypopover';
+import { toast } from 'sonner';
+import { useAiStore } from '@/stores/aiStore';
+import { FileUIPart } from 'ai';
 
 
 
 
-const suggestions: { key: string; value: string }[] = [
-  { key: nanoid(), value: 'Help with my homework' },
-  { key: nanoid(), value: 'Help me study for my biology exam' },
-  { key: nanoid(), value: 'Create 10 flashcards about Machine Learning' },
-  { key: nanoid(), value: 'Explain the K-Means algorithm' },
-];
+// const suggestions: { key: string; value: string }[] = [
+//   { key: nanoid(), value: 'Help with my homework' },
+//   { key: nanoid(), value: 'Help me study for my biology exam' },
+//   { key: nanoid(), value: 'Create 10 flashcards about Machine Learning' },
+//   { key: nanoid(), value: 'Explain the K-Means algorithm' },
+// ];
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+function validateFiles(files: FileUIPart[] | undefined): boolean {
+  if (!files || files.length === 0) {
+    return true; // No files to validatse, so it's valid
+  }
 
+  for (const file of files) {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error(`Invalid file type: ${file.filename}`, {
+        description: 'Only images (PNG, JPG, WEBP, GIF) and PDFs are allowed.',
+      });
+      return false; // Found an invalid file
+    }
+  }
+  return true; // All files are valid
+}
 export default function NewChatPage() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +78,7 @@ export default function NewChatPage() {
   const [contextFolder, setContextFolder] = useState<Doc<'folders'> | null>(
     null,
   );
+  const setPendingMessage = useAiStore((state) => state.setPendingMessage);
   // ---
 
   // --- ADDED: Missing data-fetching for your JSX ---
@@ -66,7 +89,12 @@ export default function NewChatPage() {
   // ---
 
   const handleSubmit = async (message: PromptInputMessage) => {
+   
     if (!message.text?.trim()) return;
+     if (!validateFiles(message.files)) {
+      return; // Stop execution if files are invalid
+    }
+   
 
     setIsLoading(true);
     try {
@@ -74,20 +102,9 @@ export default function NewChatPage() {
         message.text.slice(0, 50) + (message.text.length > 50 ? '...' : '');
       const chatId = await createChat({ title });
 
-      const query = new URLSearchParams();
-      query.set('initialMessage', message.text);
-
-      if (contextFolder) {
-        query.set('contextFolderId', contextFolder._id);
-      }
-  
-      // if (contextFile) {
-      //   query.set('contextFileId', contextFile._id);
-      // }
-    
-
-      // Navigate to chat page with the initial message & context in URL
-      router.push(`/Ai/${chatId}?${query.toString()}`);
+      setPendingMessage(message);
+     
+      router.push(`/Ai/${chatId}`);
     } catch (error) {
       console.error('Failed to create chat:', error);
       setIsLoading(false);
@@ -100,7 +117,7 @@ export default function NewChatPage() {
 
   return (
     // --- UPDATED: Changed layout to push input to bottom ---
-    <div className="flex flex-col h-full max-w-4xl mx-auto p-6">
+    <div className="flex flex-col h-full max-w-4xl  p-6">
       <div className="flex items-center gap-2">
         <SidebarTrigger size="icon-lg" />
         <ChatHistoryPopover />
@@ -122,7 +139,7 @@ export default function NewChatPage() {
 
 
       
-      <Suggestions className='' >
+      {/* <Suggestions className='' >
           {suggestions.map(suggestion => (
             <Suggestion
               key={suggestion.key}
@@ -130,7 +147,7 @@ export default function NewChatPage() {
               suggestion={suggestion.value}
             />
           ))}
-        </Suggestions>
+        </Suggestions> */}
        
 
       {/* --- ADDED: Provider and wrapper div for the input --- */}
@@ -143,7 +160,9 @@ export default function NewChatPage() {
             multiple
           >
             <PromptInputHeader>
-              {/* This is your full context UI, now wired up */}
+                 <PromptInputAttachments>
+                            {(attachment) => <PromptInputAttachment data={attachment} />}
+                          </PromptInputAttachments>
               <PromptInputHoverCard
                 open={popoverOpen}
                 onOpenChange={setPopoverOpen}
@@ -240,7 +259,12 @@ export default function NewChatPage() {
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>
-                {/* File attachments and web search... */}
+                 <PromptInputActionMenu>
+                                <PromptInputActionMenuTrigger />
+                                <PromptInputActionMenuContent>
+                                  <PromptInputActionAddAttachments />
+                                </PromptInputActionMenuContent>
+                    </PromptInputActionMenu>
               </PromptInputTools>
               <PromptInputSubmit
                 disabled={!input || isLoading} // Updated disabled logic

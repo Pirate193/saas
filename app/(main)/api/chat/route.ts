@@ -4,15 +4,16 @@ import { ConvexClient, ConvexHttpClient } from "convex/browser";
 import { z } from 'zod';
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { title } from "process";
 
-
-// Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
-
 export async function POST(req: Request) {
-  const { messages,contextFolder,convexToken}: {messages: UIMessage[],contextFolder?:Doc<'folders'>, convexToken?: string } = await req.json();
+  const { messages, contextFolder, convexToken }: { 
+    messages: UIMessage[], 
+    contextFolder?: Doc<'folders'>, 
+    convexToken?: string 
+  } = await req.json();
+  
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
   
   if (convexToken) {
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
       { status: 401 }
     );
   }
+
   const contextSection = contextFolder 
     ? `
 CURRENT CONTEXT:
@@ -65,212 +67,218 @@ CRITICAL TOOL USAGE INSTRUCTIONS:
 1. FIRST call getfolderitems to understand existing content
 2. Generate an appropriate title based on the topic (e.g., "Introduction to AI", "Photosynthesis Overview")
 3. Call createNote with folderId and your generated title
-4. THEN call updateNote with substantial, well-structured content
+4. THEN call updateNote with BlockNote-compatible JSON content
 5. DO NOT ask the user for a title - YOU create one based on their request
 
-**When quizzing:**
-1. Call getUserFlashcards to get existing flashcards
-2. Present questions one at a time
-3. Wait for answers and provide detailed feedback
+**IMPORTANT - BlockNote Content Format:**
+When calling updateNote, the content MUST be a stringified JSON array of BlockNote blocks. Use this structure:
+
+[
+  {
+    "type": "heading",
+    "props": { "level": 1 },
+    "content": [{ "type": "text", "text": "Your Heading", "styles": {} }]
+  },
+  {
+    "type": "paragraph",
+    "content": [{ "type": "text", "text": "Your paragraph text", "styles": {} }]
+  },
+  {
+    "type": "bulletListItem",
+    "content": [{ "type": "text", "text": "List item", "styles": {} }]
+  }
+]
+
+Available block types: heading (levels 1-3), paragraph, bulletListItem, numberedListItem
+Available text styles: bold, italic, underline, code
 
 **General Rules:**
 - Be proactive and autonomous - don't ask for information you can generate yourself
 - Use tools in the right sequence (always get context first)
 - If a folder is selected, assume the user wants to work with that folder
-- Only ask clarifying questions if the request is genuinely ambiguous (e.g., "generate flashcards" without specifying the subject when the folder has multiple topics)
+- Only ask clarifying questions if the request is genuinely ambiguous
 
 HOW TO INTERACT:
 - **Be Encouraging**: Celebrate progress and provide constructive feedback
-- **Be Socratic**: Ask guiding questions to help students think critically (but don't ask for data you should generate)
+- **Be Socratic**: Ask guiding questions to help students think critically
 - **Be Adaptive**: Adjust your teaching style based on responses
 - **Be Specific**: Reference their actual content when helping
 - **Be Concise**: Keep responses focused (2-3 paragraphs unless explaining complex topics)
-- **Be Autonomous**: Take initiative - if asked to "generate flashcards about AI", just do it!
+- **Be Autonomous**: Take initiative!`;
 
-STUDY SESSION MODES:
-1. **Quiz Mode**: Interactive study sessions using their flashcards
-2. **Explain Mode**: Break down concepts with examples and analogies
-3. **Review Mode**: Summarize key concepts and create practice questions
-4. **Brainstorm Mode**: Help organize thoughts and provide structure
-
-Remember: You are a PROACTIVE assistant. When asked to generate content, do it autonomously. Don't make the user do your job!`;
-const tools = createTools(convex);
+  const tools = createTools(convex);
 
   const result = streamText({
-    model:google('gemini-2.5-flash') ,
+    model: google('gemini-2.5-flash'),
     messages: convertToModelMessages(messages),
-    system:system,
+    system: system,
     tools,
-    stopWhen:stepCountIs(10),
+    stopWhen: stepCountIs(10),
   });
 
-  console.log('result', result);
-  // send sources and reasoning back to the client
   return result.toUIMessageStreamResponse({
     sendSources: true,
     sendReasoning: true,
   });
-
 }
 
-function createTools(convex: ConvexHttpClient) {
+export function createTools(convex: ConvexHttpClient) {
   return {
-  generateFlashcards: tool({
-    description: 'Generate a flashcard in a folder. Create thoughtful questions with correct answers based on the folder content. For multiple choice, provide 4 options. DO NOT ask the user for questions/answers - you should generate them autonomously.',
-    inputSchema: z.object({
-      folderId: z.string().describe('The folder ID where the flashcard should be created'),
-      question: z.string().describe('The question to ask (you generate this based on folder content)'),
-      answers: z.array(z.object({
-        text: z.string().describe('Answer option text'),
-        isCorrect: z.boolean().describe('Whether this answer is correct')
-      })).describe('Array of possible answers. For multiple choice: 4 options with 1 correct. For true/false: 2 options.'),
-      isMultipleChoice: z.boolean().describe('True for multiple choice questions, false for true/false or short answer'),
-    }),
-    execute: async ({ folderId, question, answers, isMultipleChoice }) => {
-      try {
-        const flashcard = await convex.mutation(api.flashcards.createFlashcard, {
-          folderId: folderId as Id<'folders'>,
-          question: question,
-          answers: answers,
-          isMultipleChoice: isMultipleChoice,
-        });
-        console.log('success in generateFlashcards');
-        return { 
-          success: true, 
-          flashcard,
-          message: `Created flashcard: "${question}"` 
-        };
-      } catch (error) {
-         console.log('error in generateFlashcards',error);
-        return { 
-          success: false, 
-          error: `Failed to create flashcard: ${error}` 
-        };
-      }
-    }
-  }),
-  
-  getUserFlashcards: tool({
-    description: 'Retrieve all flashcards from a specific folder. Use this to quiz the user or understand what flashcards already exist.',
-    inputSchema: z.object({
-      folderId: z.string().describe('The folder ID to fetch flashcards from'),
-    }),
-    execute: async ({ folderId }) => {
-      try {
-        const flashcards = await convex.query(api.flashcards.fetchFlashcards, {
-          folderId: folderId as Id<'folders'>,
-        });
-        console.log('success in getUserFlashcards');
-        return { 
-          success: true, 
-          flashcards,
-          count: flashcards?.length || 0 
-        };
-      } catch (error) {
-         console.log('errorin getUserFlashcards',error);
-        return { 
-          success: false, 
-          error: `Failed to fetch flashcards: ${error}` 
-        };
-      }
-    }
-  }),
-  
-  getfolderitems: tool({
-    description: 'Get all content (notes, files, flashcards) from a folder. ALWAYS call this FIRST before generating new content to understand the context.',
-    inputSchema: z.object({
-      folderId: z.string().describe('The folder ID to fetch content from'),
-    }),
-    execute: async ({ folderId }) => {
-      try {
-        const [notes, files, flashcards] = await Promise.all([
-          convex.query(api.notes.fetchNotesInFolder, {
+    generateFlashcards: tool({
+      description: 'Generate a flashcard in a folder. Create thoughtful questions with correct answers based on the folder content. For multiple choice, provide 4 options. DO NOT ask the user for questions/answers - you should generate them autonomously.',
+      inputSchema: z.object({
+        folderId: z.string().describe('The folder ID where the flashcard should be created'),
+        question: z.string().describe('The question to ask (you generate this based on folder content)'),
+        answers: z.array(z.object({
+          text: z.string().describe('Answer option text'),
+          isCorrect: z.boolean().describe('Whether this answer is correct')
+        })).describe('Array of possible answers. For multiple choice: 4 options with 1 correct. For true/false: 2 options.'),
+        isMultipleChoice: z.boolean().describe('True for multiple choice questions, false for true/false or short answer'),
+      }),
+      execute: async ({ folderId, question, answers, isMultipleChoice }) => {
+        try {
+          const flashcard = await convex.mutation(api.flashcards.createFlashcard, {
             folderId: folderId as Id<'folders'>,
-          }),
-          convex.query(api.files.fetchfiles, {
-            folderId: folderId as Id<'folders'>,
-          }),
-          convex.query(api.flashcards.fetchFlashcards, {
-            folderId: folderId as Id<'folders'>,
-          }),
-        ]);
-        console.log('success in getfolderitems');
-        return { 
-          success: true,
-          notes: notes || [],
-          files: files || [],
-          flashcards: flashcards || [],
-          summary: `Found ${notes?.length || 0} notes, ${files?.length || 0} files, and ${flashcards?.length || 0} flashcards`
-        };
-      } catch (error) {
-         console.log('getfolderitems', error);
-        return { 
-          success: false, 
-          error: `Failed to fetch folder items: ${error}` 
-        };
+            question: question,
+            answers: answers,
+            isMultipleChoice: isMultipleChoice,
+          });
+          console.log('success in generateFlashcards');
+          return { 
+            success: true, 
+            flashcard,
+            message: `Created flashcard: "${question}"` 
+          };
+        } catch (error) {
+          console.log('error in generateFlashcards', error);
+          return { 
+            success: false, 
+            error: `Failed to create flashcard: ${error}` 
+          };
+        }
       }
-    }
-  }),
-  
-  createNote: tool({
-    description: 'Create a new note with a title. You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title.',
-    inputSchema: z.object({
-      folderId: z.string().describe('The folder ID where the note should be created'),
-      title: z.string().describe('The title for the note (you generate this based on the topic)'),
     }),
-    execute: async ({ folderId, title }) => {
-      try {
-        const note = await convex.mutation(api.notes.createNote, {
-          folderId: folderId as Id<'folders'>,
-          title: title,
-        });
+    
+    getUserFlashcards: tool({
+      description: 'Retrieve all flashcards from a specific folder. Use this to quiz the user or understand what flashcards already exist.',
+      inputSchema: z.object({
+        folderId: z.string().describe('The folder ID to fetch flashcards from'),
+      }),
+      execute: async ({ folderId }) => {
+        try {
+          const flashcards = await convex.query(api.flashcards.fetchFlashcards, {
+            folderId: folderId as Id<'folders'>,
+          });
+          console.log('success in getUserFlashcards');
+          return { 
+            success: true, 
+            flashcards,
+            count: flashcards?.length || 0 
+          };
+        } catch (error) {
+          console.log('error in getUserFlashcards', error);
+          return { 
+            success: false, 
+            error: `Failed to fetch flashcards: ${error}` 
+          };
+        }
+      }
+    }),
+    
+    getfolderitems: tool({
+      description: 'Get all content (notes, files, flashcards) from a folder. ALWAYS call this FIRST before generating new content to understand the context.',
+      inputSchema: z.object({
+        folderId: z.string().describe('The folder ID to fetch content from'),
+      }),
+      execute: async ({ folderId }) => {
+        try {
+          const [notes, files, flashcards] = await Promise.all([
+            convex.query(api.notes.fetchNotesInFolder, {
+              folderId: folderId as Id<'folders'>,
+            }),
+            convex.query(api.files.fetchfiles, {
+              folderId: folderId as Id<'folders'>,
+            }),
+            convex.query(api.flashcards.fetchFlashcards, {
+              folderId: folderId as Id<'folders'>,
+            }),
+          ]);
+          console.log('success in getfolderitems');
+          return { 
+            success: true,
+            notes: notes || [],
+            files: files || [],
+            flashcards: flashcards || [],
+            summary: `Found ${notes?.length || 0} notes, ${files?.length || 0} files, and ${flashcards?.length || 0} flashcards`
+          };
+        } catch (error) {
+          console.log('getfolderitems error', error);
+          return { 
+            success: false, 
+            error: `Failed to fetch folder items: ${error}` 
+          };
+        }
+      }
+    }),
+    
+    createNote: tool({
+      description: 'Create a new note with a title. You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title.',
+      inputSchema: z.object({
+        folderId: z.string().describe('The folder ID where the note should be created'),
+        title: z.string().describe('The title for the note (you generate this based on the topic)'),
+      }),
+      execute: async ({ folderId, title }) => {
+        try {
+          const note = await convex.mutation(api.notes.createNote, {
+            folderId: folderId as Id<'folders'>,
+            title: title,
+          });
           console.log('created note', note);
-        return { 
-          success: true, 
-          note,
-          message: `Created note: "${title}". Now update it with content using updateNote.` 
-        };
-      
-      } catch (error) {
-        console.log('note creation', error);
-        return { 
-          success: false, 
-          error: `Failed to create note: ${error}` 
-        };
+          return { 
+            success: true, 
+            note,
+            message: `Created note: "${title}". Now update it with content using updateNote.` 
+          };
+        } catch (error) {
+          console.log('note creation error', error);
+          return { 
+            success: false, 
+            error: `Failed to create note: ${error}` 
+          };
+        }
       }
-    }
-  }),
-  
-  updateNote: tool({
-    description: 'Update the content of an existing note. Use this after createNote to add substantial, well-structured content.',
-    inputSchema: z.object({
-      noteId: z.string().describe('The note ID to update'),
-      content: z.string().describe('The full content to add to the note'),
     }),
-    execute: async ({ noteId, content }) => {
-      try {
-        const note = await convex.mutation(api.notes.updateContent, {
-          noteId: noteId as Id<'notes'>,
-          content: content,
-        });
-        console.log('updated ', note);
-        return { 
-          success: true, 
-          note,
-          message: `Note content updated successfully ${note} ` 
-        };
-        
-      } catch (error) {
-         console.log('note update', error);
-        return { 
-          success: false, 
-          error: `Failed to update note: ${error}` 
-        };
+    
+    updateNote: tool({
+      description: 'Update the content of an existing note. Content MUST be a stringified JSON array of BlockNote blocks with proper structure.',
+      inputSchema: z.object({
+        noteId: z.string().describe('The note ID to update'),
+        content: z.string().describe('Stringified JSON array of BlockNote blocks. Example: \'[{"type":"heading","props":{"level":1},"content":[{"type":"text","text":"Title","styles":{}}]},{"type":"paragraph","content":[{"type":"text","text":"Content","styles":{}}]}]\''),
+      }),
+      execute: async ({ noteId, content }) => {
+        try {
+          const note = await convex.mutation(api.notes.updateContent, {
+            noteId: noteId as Id<'notes'>,
+            content: content,
+          });
+          console.log('updated note', note);
+          return { 
+            success: true, 
+            note,
+            message: `Note content updated successfully` 
+          };
+        } catch (error) {
+          console.log('note update error', error);
+          return { 
+            success: false, 
+            error: `Failed to update note: ${error}` 
+          };
+        }
       }
-    }
-  }),
-  getFlashcard: tool({
-   description: 'Get detailed information about a specific flashcard including its question, answers, and performance statistics. Use this to understand how the student is performing on specific flashcards.',
+    }),
+    
+    getFlashcard: tool({
+      description: 'Get detailed information about a specific flashcard including its question, answers, and performance statistics.',
       inputSchema: z.object({
         flashcardId: z.string().describe('The flashcard ID to fetch'),
       }),
@@ -301,6 +309,6 @@ function createTools(convex: ConvexHttpClient) {
           };
         }
       }
-  })
-}
+    })
+  };
 }

@@ -38,7 +38,7 @@ import {
   PromptInputHoverCardTrigger,
 } from "@/components/ai-elements/prompt-input";
 import { Action, Actions } from "@/components/ai-elements/actions";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import {
@@ -72,22 +72,42 @@ import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
 import {
   CreateFlashcard,
   CreateNote,
+  GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
   UpdateNote,
 } from "@/components/ai/tools";
-import { UIMessage } from "ai";
+import { FileUIPart, UIMessage } from "ai";
 import { SidebarTrigger } from "../ui/sidebar";
 import { ChatHistoryPopover } from "./chathistorypopover";
+import { useAiStore } from "@/stores/aiStore";
+import { toast } from "sonner";
 
-const suggestions: { key: string; value: string }[] = [
-  { key: nanoid(), value: "Help with home work?" },
-  { key: nanoid(), value: "Help me study?" },
-  { key: nanoid(), value: "Create me flashcards about ?" },
-  { key: nanoid(), value: "Explain a concept about ?" },
-];
 interface Props {
   chatId: Id<"chats">;
+}
+
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+];
+function validateFiles(files: FileUIPart[] | undefined): boolean {
+  if (!files || files.length === 0) {
+    return true; // No files to validate, so it's valid
+  }
+
+  for (const file of files) {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error(`Invalid file type: ${file.filename}`, {
+        description: "Only images (PNG, JPG, WEBP, GIF) and PDFs are allowed.",
+      });
+      return false; // Found an invalid file
+    }
+  }
+  return true; // All files are valid
 }
 
 const Chat = ({ chatId }: Props) => {
@@ -95,15 +115,17 @@ const Chat = ({ chatId }: Props) => {
   const [webSearch, setWebSearch] = useState(false);
   const initialMessages = useQuery(api.chat.getChat, { chatId: chatId }); //fetch the messages form convex
   const addMessage = useMutation(api.chat.addmessage);
-   const [contextFolder, setContexFolder] = useState<Doc<"folders"> | null>(
+  const [contextFolder, setContexFolder] = useState<Doc<"folders"> | null>(
     null
   );
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [hasProcessedPendingMessage, setHasProcessedPendingMessage] =
+    useState(false);
 
   const { getToken } = useAuth();
   const allfolders = useQuery(api.folders.fetchFolders);
-  const [initialMessageSent, setInitialMessageSent] = useState(false);
+  const pendingMessageProcessedRef = useRef(false);
   const transformedMessages =
     (initialMessages?.map((msg) => ({
       id: msg._id,
@@ -111,44 +133,52 @@ const Chat = ({ chatId }: Props) => {
       parts: msg.parts || [],
       content: msg.content,
     })) as UIMessage[]) || [];
-    // Get initial message from URL if present
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const initialMessage = searchParams?.get('initialMessage');
-  const { messages, sendMessage, status, regenerate, error,setMessages } = useChat({
-    
-    id: chatId,
-    onFinish: async (message) => {
-      if (message.message.role === "assistant") {
-        const textContent = message.message.parts
-        .filter(part => part.type === 'text')
-        .map(part => part.text)
-        .join('\n');
-        await addMessage({
-          chatId: chatId,
-          role: message.message.role,
-          content: textContent,
-          parts: message.message.parts,
-        });
-      }
-    },
-  });
+
+  const pendingMessage = useAiStore((state) => state.pendingMessage);
+  const setPendingMessage = useAiStore((state) => state.setPendingMessage);
+  const hasInitialized = useRef(false);
+  const { messages, sendMessage, status, regenerate, error, setMessages } =
+    useChat({
+      id: chatId,
+      onFinish: async (message) => {
+        if (message.message.role === "assistant") {
+          const textContent = message.message.parts
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("\n");
+          await addMessage({
+            chatId: chatId,
+            role: message.message.role,
+            content: textContent,
+            parts: message.message.parts,
+          });
+        }
+      },
+    });
 
   useEffect(() => {
-    if (initialMessages && initialMessages.length > 0) {
-      const transformedMessages = initialMessages.map(msg => ({
+    if (
+      initialMessages &&
+      initialMessages.length > 0 &&
+      !hasInitialized.current
+    ) {
+      hasInitialized.current = true;
+      const transformedMessages = initialMessages.map((msg) => ({
         id: msg._id,
-        role: msg.role as 'user' | 'assistant',
+        role: msg.role as "user" | "assistant",
         content: msg.content,
-        parts: msg.parts || [{ type: 'text', text: msg.content }],
-      }));
-      
+        parts: msg.parts || [{ type: "text", text: msg.content }],
+      })) as UIMessage[];
+
       setMessages(transformedMessages);
-      console.log(' Loaded messages from Convex:', transformedMessages.length);
+      console.log(" Loaded messages from Convex:", transformedMessages.length);
     }
   }, [initialMessages, setMessages]);
- 
 
   const handleSubmit = async (message: PromptInputMessage) => {
+    if (!validateFiles(message.files)) {
+      return; // Stop execution if files are invalid
+    }
     const hasText = Boolean(message.text);
     const hasAttachments = Boolean(message.files?.length);
 
@@ -184,25 +214,27 @@ const Chat = ({ chatId }: Props) => {
   };
   useEffect(() => {
     const sendInitialMessage = async () => {
-      // Only send if we have an initial message, haven't sent it yet, and there are no messages in the chat
-      if (initialMessage && !initialMessageSent && (!initialMessages || initialMessages.length === 0)) {
-        setInitialMessageSent(true);
-        
-        // Send the initial message automatically
-        await handleSubmit({ text: initialMessage, files: [] });
-        
-        // Clean up URL (remove the initialMessage param)
-        if (typeof window !== 'undefined') {
-          window.history.replaceState({}, '', `/Ai/${chatId}`);
-        }
+      // Check if there is a pending message and we haven't processed it yet
+      if (
+        pendingMessage &&
+        !pendingMessageProcessedRef.current &&
+        initialMessages &&
+        initialMessages.length === 0
+      ) {
+        console.log("Sending pending message from store:", pendingMessage);
+        pendingMessageProcessedRef.current = true;
+
+        // Send the pending message
+        await handleSubmit(pendingMessage);
+
+        // Clear the pending message from the store
+        setPendingMessage(null);
+        setHasProcessedPendingMessage(true);
       }
     };
 
     sendInitialMessage();
-  }, [initialMessage, initialMessageSent, initialMessages, chatId]);
-  const handleSuggestionClick = (suggestion: string) => {
-    setInput(suggestion);
-  };
+  }, [pendingMessage, initialMessages, setPendingMessage]);
 
   const filteredFolders = allfolders?.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
@@ -210,12 +242,12 @@ const Chat = ({ chatId }: Props) => {
   return (
     <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
       <div className="flex flex-col h-full  ">
-         <div className="flex items-center gap-2">
-                 <SidebarTrigger size="icon-lg" />
-                 <ChatHistoryPopover />
+        <div className="flex items-center gap-2">
+          <SidebarTrigger size="icon-lg" />
+          <ChatHistoryPopover />
         </div>
-        <Conversation >
-          <ConversationContent className="h-full overflow-y-auto scrollbar-hidden">
+        <Conversation>
+          <ConversationContent className="" >
             {messages.map((message) => (
               <div key={message.id}>
                 {message.role === "assistant" &&
@@ -245,32 +277,35 @@ const Chat = ({ chatId }: Props) => {
                 {message.parts.map((part, i) => {
                   if (part.type === "text") {
                     return (
-                      <Fragment key={`${message.id}-${i}`}>
+                      <div key={`${message.id}-${i}`} className="w-full">
                         <Message from={message.role}>
                           <MessageContent>
-                            <Response>{part.text}</Response>
+                            <Response isAnimating={status === "streaming"}>
+                              {part.text}
+                            </Response>
                           </MessageContent>
                         </Message>
-                        {message.role === "assistant" &&
-                           (
-                            <Actions className="mt-1">
-                             { i === messages.length - 1 &&(<Action
+                        {message.role === "assistant" && (
+                          <Actions className="mt-1">
+                            {i === messages.length - 1 && (
+                              <Action
                                 onClick={() => regenerate()}
                                 label="Retry"
                               >
                                 <RefreshCcwIcon className="size-3" />
-                              </Action>)}
-                              <Action
-                                onClick={() =>
-                                  navigator.clipboard.writeText(part.text)
-                                }
-                                label="Copy"
-                              >
-                                <CopyIcon className="size-3" />
                               </Action>
-                            </Actions>
-                          )}
-                      </Fragment>
+                            )}
+                            <Action
+                              onClick={() =>
+                                navigator.clipboard.writeText(part.text)
+                              }
+                              label="Copy"
+                            >
+                              <CopyIcon className="size-3" />
+                            </Action>
+                          </Actions>
+                        )}
+                      </div>
                     );
                   }
                   if (part.type === "reasoning") {
@@ -289,95 +324,110 @@ const Chat = ({ chatId }: Props) => {
                       </Reasoning>
                     );
                   }
-                  if (part.type === "dynamic-tool") {
-                    if (part.toolName === "createNote") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type={`tool-${part.type}`}
-                            title="createNote"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <CreateNote output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-                    if (part.toolName === "updateNote") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-updateNote"
-                            title="Updating Note"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <UpdateNote output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
 
-                    // Generate Flashcards
-                    if (part.toolName === "generateFlashcards") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-generateFlashcards"
-                            title="Creating Flashcard"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <CreateFlashcard output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-
-                    // Get Folder Items
-                    if (part.toolName === "getfolderitems") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-getfolderitems"
-                            title="Analyzing Folder"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <GetFolderItems output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-
-                    // Get User Flashcards
-                    if (part.toolName === "getUserFlashcards") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-getUserFlashcards"
-                            title="Fetching Flashcards"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <GetUserFlashcards output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
-                    return null;
+                  if (part.type === "tool-createNote") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-createNote"
+                          title="Creating Note"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <CreateNote output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
                   }
+
+                  if (part.type === "tool-updateNote") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-updateNote"
+                          title="Updating Note"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <UpdateNote output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+
+                  if (part.type === "tool-generateFlashcards") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-generateFlashcards"
+                          title="Creating Flashcard"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <CreateFlashcard output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+
+                  if (part.type === "tool-getfolderitems") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getfolderitems"
+                          title="Analyzing Folder"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <GetFolderItems output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+
+                  if (part.type === "tool-getUserFlashcards") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getUserFlashcards"
+                          title="Fetching Flashcards"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <GetUserFlashcards output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+
+                  if (part.type === "tool-getFlashcard") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getFlashcard"
+                          title="Analyzing Flashcard"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <GetFlashcard output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
+
+                  return null;
                 })}
               </div>
             ))}

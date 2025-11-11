@@ -73,6 +73,7 @@ import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
 import {
   CreateFlashcard,
   CreateNote,
+  GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
   UpdateNote,
@@ -111,7 +112,7 @@ export default function AiModal() {
   useEffect(() => {
     activeChatIdRef.current = activeChatId;
   }, [activeChatId]);
-
+  const hasInitialized = useRef(false);
   const { messages, sendMessage, setMessages, status, regenerate, error } =
     useChat({
       id: (activeChatId as Id<"chats">) || undefined,
@@ -132,7 +133,8 @@ export default function AiModal() {
       },
     });
   useEffect(() => {
-    if (initialMessages && initialMessages.length > 0) {
+    if (initialMessages && initialMessages.length > 0 && !hasInitialized.current) {
+      hasInitialized.current = true;
       const transformedMessages = initialMessages.map((msg) => ({
         id: msg._id,
         role: msg.role as "user" | "assistant",
@@ -294,7 +296,7 @@ export default function AiModal() {
                         <Fragment key={`${message.id}-${i}`}>
                           <Message from={message.role}>
                             <MessageContent>
-                              <Response>{part.text}</Response>
+                              <Response isAnimating={status === "streaming"}>{part.text}</Response>
                             </MessageContent>
                           </Message>
                           {message.role === "assistant" && (
@@ -336,95 +338,109 @@ export default function AiModal() {
                         </Reasoning>
                       );
                     }
-                    if (part.type === "dynamic-tool") {
-                      if (part.toolName === "createNote") {
-                        return (
-                          <Tool key={`${message.id}-${i}`}>
-                            <ToolHeader
-                              state={part.state}
-                              type={`tool-${part.type}`}
-                              title="createNote"
-                            />
-                            <ToolContent>
-                              {part.state === "output-available" && (
-                                <CreateNote output={part.output} />
-                              )}
-                            </ToolContent>
-                          </Tool>
-                        );
-                      }
-                      if (part.toolName === "updateNote") {
-                        return (
-                          <Tool key={`${message.id}-${i}`}>
-                            <ToolHeader
-                              state={part.state}
-                              type="tool-updateNote"
-                              title="Updating Note"
-                            />
-                            <ToolContent>
-                              {part.state === "output-available" && (
-                                <UpdateNote output={part.output} />
-                              )}
-                            </ToolContent>
-                          </Tool>
-                        );
-                      }
-
-                      // Generate Flashcards
-                      if (part.toolName === "generateFlashcards") {
-                        return (
-                          <Tool key={`${message.id}-${i}`}>
-                            <ToolHeader
-                              state={part.state}
-                              type="tool-generateFlashcards"
-                              title="Creating Flashcard"
-                            />
-                            <ToolContent>
-                              {part.state === "output-available" && (
-                                <CreateFlashcard output={part.output} />
-                              )}
-                            </ToolContent>
-                          </Tool>
-                        );
-                      }
-
-                      // Get Folder Items
-                      if (part.toolName === "getfolderitems") {
-                        return (
-                          <Tool key={`${message.id}-${i}`}>
-                            <ToolHeader
-                              state={part.state}
-                              type="tool-getfolderitems"
-                              title="Analyzing Folder"
-                            />
-                            <ToolContent>
-                              {part.state === "output-available" && (
-                                <GetFolderItems output={part.output} />
-                              )}
-                            </ToolContent>
-                          </Tool>
-                        );
-                      }
-
-                      // Get User Flashcards
-                      if (part.toolName === "getUserFlashcards") {
-                        return (
-                          <Tool key={`${message.id}-${i}`}>
-                            <ToolHeader
-                              state={part.state}
-                              type="tool-getUserFlashcards"
-                              title="Fetching Flashcards"
-                            />
-                            <ToolContent>
-                              {part.state === "output-available" && (
-                                <GetUserFlashcards output={part.output} />
-                              )}
-                            </ToolContent>
-                          </Tool>
-                        );
-                      }
-                      return null;
-                    }
+                      if (part.type === "tool-createNote") {
+                                       return (
+                                         <Tool key={`${message.id}-${i}`}>
+                                           <ToolHeader
+                                             state={part.state}
+                                             type="tool-createNote"
+                                             title="Creating Note"
+                                           />
+                                           <ToolContent>
+                                             {part.state === "output-available" && (
+                                               <CreateNote output={part.output} />
+                                             )}
+                                           </ToolContent>
+                                         </Tool>
+                                       );
+                                     }
+                   
+                                     if (part.type === "tool-updateNote") {
+                                       return (
+                                         <Tool key={`${message.id}-${i}`}>
+                                           <ToolHeader
+                                             state={part.state}
+                                             type="tool-updateNote"
+                                             title="Updating Note"
+                                           />
+                                           <ToolContent>
+                                             {part.state === "output-available" && (
+                                               <UpdateNote output={part.output} />
+                                             )}
+                                           </ToolContent>
+                                         </Tool>
+                                       );
+                                     }
+                   
+                                     if (part.type === "tool-generateFlashcards") {
+                                       return (
+                                         <Tool key={`${message.id}-${i}`}>
+                                           <ToolHeader
+                                             state={part.state}
+                                             type="tool-generateFlashcards"
+                                             title="Creating Flashcard"
+                                           />
+                                           <ToolContent>
+                                             {part.state === "output-available" && (
+                                               <CreateFlashcard output={part.output} />
+                                             )}
+                                           </ToolContent>
+                                         </Tool>
+                                       );
+                                     }
+                   
+                                     if (part.type === "tool-getfolderitems") {
+                                       return (
+                                         <Tool key={`${message.id}-${i}`}>
+                                           <ToolHeader
+                                             state={part.state}
+                                             type="tool-getfolderitems"
+                                             title="Analyzing Folder"
+                                           />
+                                           <ToolContent>
+                                             {part.state === "output-available" && (
+                                               <GetFolderItems output={part.output} />
+                                             )}
+                                           </ToolContent>
+                                         </Tool>
+                                       );
+                                     }
+                   
+                                     if (part.type === "tool-getUserFlashcards") {
+                                       return (
+                                         <Tool key={`${message.id}-${i}`}>
+                                           <ToolHeader
+                                             state={part.state}
+                                             type="tool-getUserFlashcards"
+                                             title="Fetching Flashcards"
+                                           />
+                                           <ToolContent>
+                                             {part.state === "output-available" && (
+                                               <GetUserFlashcards output={part.output} />
+                                             )}
+                                           </ToolContent>
+                                         </Tool>
+                                       );
+                                     }
+                   
+                                     if (part.type === "tool-getFlashcard") {
+                                       return (
+                                         <Tool key={`${message.id}-${i}`}>
+                                           <ToolHeader
+                                             state={part.state}
+                                             type="tool-getFlashcard"
+                                             title="Analyzing Flashcard"
+                                           />
+                                           <ToolContent>
+                                             {part.state === "output-available" && (
+                                               <GetFlashcard output={part.output} />
+                                             )}
+                                           </ToolContent>
+                                         </Tool>
+                                       );
+                                     }
+                   
+                                   return null;
                   })}
                 </div>
               ))}
