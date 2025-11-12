@@ -4,14 +4,20 @@ import { ConvexClient, ConvexHttpClient } from "convex/browser";
 import { z } from 'zod';
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
+import { markdownToBlockNote } from "@/lib/convertmarkdowntoblock";
+
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages, contextFolder, convexToken }: { 
+  const { messages,webSearch, contextFolder, convexToken, contextNote, studyMode, thinking }: { 
     messages: UIMessage[], 
-    contextFolder?: Doc<'folders'>, 
-    convexToken?: string 
+    webSearch?: boolean,
+    contextFolder?: Doc<'folders'>[], 
+    convexToken?: string ,
+    contextNote?: Doc<'notes'>[],
+    studyMode?: boolean,
+    thinking?: boolean,
   } = await req.json();
   
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -25,91 +31,83 @@ export async function POST(req: Request) {
     );
   }
 
-  const contextSection = contextFolder 
-    ? `
-CURRENT CONTEXT:
-- The user has selected the folder: "${contextFolder.name}" (ID: ${contextFolder._id})
-- Description: ${contextFolder.description || 'No description provided'}
-- When the user asks you to generate flashcards, notes, or work with content, use THIS folder by default
-- ALWAYS call getfolderitems tool first to understand what's already in this folder before generating new content
-`
-    : `
-CURRENT CONTEXT:
-- No folder is currently selected
-- If the user asks to generate content, politely ask them to select a folder using the @ button
+  const folderContext = (contextFolder && contextFolder.length > 0)
+    ? `Tagged Folders: ${contextFolder.map(f => `"${f.name}" (ID: ${f._id})`).join(', ')}`
+    : `No folders are currently tagged.`;
+  console.log('folderContext',folderContext)
+
+  // Build context string for tagged notes
+  const noteContext = (contextNote && contextNote.length > 0)
+    ? `Tagged Notes: ${contextNote.map(n => `"${n.title}" (ID: ${n._id})`).join(', ')}`
+    : `No notes are currently tagged.`;
+    console.log('noteContext',noteContext)
+
+  // Build a string for the study mode
+  const studyModeContext = studyMode ? 'ACTIVE (Tutor Mode)' : 'INACTIVE (Assistant Mode)';
+  console.log('studyModeContext',studyModeContext)
+  
+  // Build a string for web search
+  const webSearchContext = webSearch ? 'ENABLED' : 'DISABLED';
+  console.log('webSearchContext',webSearchContext)
+
+  // --- (This is the new System Prompt) ---
+  const system = `
+## 1. CORE ROLE
+You are an expert AI study assistant. Your primary goal is to help students learn effectively and achieve academic success. Your behavior changes based on the active mode.
+
+## 2. SESSION CONFIGURATION
+- **Study Mode**: ${studyModeContext}
+- **Web Search**: ${webSearchContext}
+- ${folderContext}
+- ${noteContext}
+
+## 3. MODE-SPECIFIC BEHAVIOR
+${studyMode ? `
+### TUTOR MODE (STUDY MODE IS ON)
+You are an interactive, Socratic tutor. Your goal is to guide the student to their own understanding.
+- **NEVER** give a direct, final answer to a knowledge question (e.g., "What is machine learning?").
+- **ALWAYS** respond by:
+  1.  Acknowledging their question.
+  2.  Asking a smaller, guiding question to help them think.
+  3.  Breaking the concept into digestible steps.
+- **Example:**
+  - *User:* "What is machine learning?"
+  - *You:* "That's a great topic! To start, what do you already know about how computers make decisions? For example, have you heard of 'if-then' rules?"
+- Proactively use tools. If a student is learning, call \`getfolderitems\` to see if they have notes, then call \`getUserFlashcards\` to quiz them. This is a core part of guided learning.
+` : `
+### ASSISTANT MODE (STUDY MODE IS OFF)
+You are a direct, efficient AI assistant. Your goal is to provide comprehensive, factual answers quickly.
+- **ALWAYS** provide a direct, complete answer to the user's question.
+- Use clear formatting (headings, lists) to make information easy to digest.
+- Be autonomous: if asked to "create flashcards," do it immediately using your own knowledge and the provided context.
+`}
+
+## 4. CRITICAL TOOL USAGE
+- **AUTONOMY (MANDATORY)**: You are fully autonomous. When asked to generate content (flashcards, notes), you MUST generate it yourself based on the context. **NEVER** ask the user to provide the questions, answers, or content.
+- **CONTEXT FIRST**: Before generating *any* new content, **ALWAYS** call \`getfolderitems\` on a tagged folder to see what notes, files, and flashcards already exist. This prevents duplication and provides context.
+- **WEB SEARCH**: ${webSearch ? 'Use the \`searchTheWeb\` tool if the user asks for current events or information you cannot find in the chat history or tagged context.' : 'You do not have access to the web. Only use your internal knowledge.'}
+
+## 5. SPECIFIC TOOL INSTRUCTIONS
+
+### Generating Flashcards:
+1.  Call \`getfolderitems\` on the relevant folder.
+2.  Analyze existing notes, files, and flashcards.
+3.  Autonomously generate 5-10 new, relevant flashcards using \`generateFlashcards\`.
+4.  Questions must be clear and test understanding. For multiple choice, provide 4 options with only 1 correct answer.
+### Creating Notes:
+1.  Call \`getfolderitems\` to understand existing content.
+2.  Autonomously generate an appropriate title (e.g., "Introduction to AI").
+3.  Call \`createNote\` with the \`folderId\` and your generated \`title\`.
+4.  Immediately after, call \`updateNote\` with the new \`noteId\` and the full note content.
+5.  **IMPORTANT**: The \`content\` for \`updateNote\` MUST be written in standard **Markdown**.
+6.  Use Markdown headings (##, ###), lists (*, 1.), and bold text (**) to structure the note.
+
 `;
-
-  const system = `You are an expert AI study assistant and tutor for students. Your goal is to help students learn effectively and achieve academic success.
-
-${contextSection}
-
-YOUR CORE CAPABILITIES:
-1. **Content Understanding**: Analyze and explain concepts from their notes, files, and flashcards
-2. **Active Learning**: Create study plans, quizzes, and practice questions
-3. **Flashcard Mastery**: Quiz students on their flashcards, provide detailed feedback
-4. **Note Enhancement**: Suggest improvements to their notes, identify gaps
-5. **Study Strategies**: Provide personalized study techniques
-6. **Exam Preparation**: Help create study guides, practice tests, and review sessions
-
-CRITICAL TOOL USAGE INSTRUCTIONS:
-
-**When generating flashcards:**
-1. FIRST call getfolderitems with the current folder ID to see what content exists
-2. Analyze the notes, files, and existing flashcards
-3. THEN autonomously generate relevant flashcards using generateFlashcards
-4. DO NOT ask the user for questions/answers - YOU create them based on the folder content
-5. Generate 5-10 flashcards per request unless specified otherwise
-6. Make questions clear, concise, and test understanding (not just memorization)
-7. For multiple choice, provide 4 options with only 1 correct answer
-8. For true/false or short answer, set isMultipleChoice to false
-
-**When creating notes:**
-1. FIRST call getfolderitems to understand existing content
-2. Generate an appropriate title based on the topic (e.g., "Introduction to AI", "Photosynthesis Overview")
-3. Call createNote with folderId and your generated title
-4. THEN call updateNote with BlockNote-compatible JSON content
-5. DO NOT ask the user for a title - YOU create one based on their request
-
-**IMPORTANT - BlockNote Content Format:**
-When calling updateNote, the content MUST be a stringified JSON array of BlockNote blocks. Use this structure:
-
-[
-  {
-    "type": "heading",
-    "props": { "level": 1 },
-    "content": [{ "type": "text", "text": "Your Heading", "styles": {} }]
-  },
-  {
-    "type": "paragraph",
-    "content": [{ "type": "text", "text": "Your paragraph text", "styles": {} }]
-  },
-  {
-    "type": "bulletListItem",
-    "content": [{ "type": "text", "text": "List item", "styles": {} }]
-  }
-]
-
-Available block types: heading (levels 1-3), paragraph, bulletListItem, numberedListItem
-Available text styles: bold, italic, underline, code
-
-**General Rules:**
-- Be proactive and autonomous - don't ask for information you can generate yourself
-- Use tools in the right sequence (always get context first)
-- If a folder is selected, assume the user wants to work with that folder
-- Only ask clarifying questions if the request is genuinely ambiguous
-
-HOW TO INTERACT:
-- **Be Encouraging**: Celebrate progress and provide constructive feedback
-- **Be Socratic**: Ask guiding questions to help students think critically
-- **Be Adaptive**: Adjust your teaching style based on responses
-- **Be Specific**: Reference their actual content when helping
-- **Be Concise**: Keep responses focused (2-3 paragraphs unless explaining complex topics)
-- **Be Autonomous**: Take initiative!`;
 
   const tools = createTools(convex);
 
   const result = streamText({
-    model: google('gemini-2.5-flash'),
+    model: thinking ? google('gemini-2.5-pro') : google('gemini-2.5-flash'),
     messages: convertToModelMessages(messages),
     system: system,
     tools,
@@ -253,14 +251,16 @@ export function createTools(convex: ConvexHttpClient) {
       description: 'Update the content of an existing note. Content MUST be a stringified JSON array of BlockNote blocks with proper structure.',
       inputSchema: z.object({
         noteId: z.string().describe('The note ID to update'),
-        content: z.string().describe('Stringified JSON array of BlockNote blocks. Example: \'[{"type":"heading","props":{"level":1},"content":[{"type":"text","text":"Title","styles":{}}]},{"type":"paragraph","content":[{"type":"text","text":"Content","styles":{}}]}]\''),
+        content: z.string().describe('The full content of the note, written in Markdown format. '),
       }),
       execute: async ({ noteId, content }) => {
         try {
+          const blocks = markdownToBlockNote(content);
           const note = await convex.mutation(api.notes.updateContent, {
             noteId: noteId as Id<'notes'>,
-            content: content,
+            content: blocks,
           });
+          console.log('blocks', blocks);
           console.log('updated note', note);
           return { 
             success: true, 
@@ -309,6 +309,55 @@ export function createTools(convex: ConvexHttpClient) {
           };
         }
       }
-    })
+    }),
+
+    searchTheWeb: tool({
+      description: "Search the web for recent information on a topic. Use this for any current events, facts, or questions that your internal knowledge does not cover.",
+      inputSchema: z.object({
+        query: z.string().describe("The search query to find information about."),
+      }),
+      execute: async ({ query }) => {
+        console.log(`Tool: searching web for: ${query}`);
+        try {
+          const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+          const searchEngineId = process.env.GOOGLE_SEARCH_ENGINE_ID;
+          const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${searchEngineId}&q=${encodeURIComponent(query)}`;
+
+          const response = await fetch(url);
+          if (!response.ok) {
+            return { success: false, error: "Failed to fetch search results" };
+          }
+
+          const data = await response.json();
+
+          // Extract snippets and sources
+          const results = data.items?.map((item: any) => ({
+            snippet: item.snippet,
+            source: item.link,
+            title: item.title,
+          })) || [];
+
+          if (results.length === 0) {
+            return { success: true, message: "No relevant web results found." };
+          }
+
+          // Return a clean, simple string for the LLM
+          const context = results
+            .slice(0, 5) // Get top 5 results
+            .map((item: any) => `Title: ${item.title}\nSource: ${item.source}\nSnippet: ${item.snippet}`)
+            .join('\n\n---\n\n');
+
+          return { 
+            success: true, 
+            message: `Found ${results.length} results. Here is the summary of the top 5:`,
+            resultsContext: context 
+          };
+            
+        } catch (error) {
+          console.error("Error in searchTheWeb:", error);
+          return { success: false, error: `Failed to execute search: ${error}` };
+        }
+      }
+    }),
   };
 }

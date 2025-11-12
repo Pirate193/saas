@@ -14,6 +14,7 @@
     "@blocknote/code-block": "^0.41.1",
     "@blocknote/core": "^0.41.1",
     "@blocknote/react": "^0.41.1",
+    "@blocknote/server-util": "^0.42.0",
     "@blocknote/shadcn": "^0.41.1",
     "@clerk/nextjs": "^6.34.1",
     "@convex-dev/agent": "^0.2.12",

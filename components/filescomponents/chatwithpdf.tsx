@@ -40,8 +40,11 @@ import { Response } from "../ai-elements/response";
 import { Action, Actions } from "../ai-elements/actions";
 import {
   AtSignIcon,
+  BookOpenIcon,
+  BrainIcon,
   CopyIcon,
   Folder,
+  GlobeIcon,
   MessageSquare,
   Notebook,
   RefreshCcwIcon,
@@ -62,16 +65,48 @@ import { title } from "process";
 import { error } from "console";
 import { toast } from "sonner";
 import { useAiStore } from "@/stores/aiStore";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, FileUIPart } from "ai";
 import { ChatHistoryPopover } from "../ai/chathistorymodal";
-import { CreateFlashcard, CreateNote, GetFlashcard, GetFolderItems, GetUserFlashcards, UpdateNote } from "../ai/tools";
+import {
+  CreateFlashcard,
+  CreateNote,
+  GetFlashcard,
+  GetFolderItems,
+  GetUserFlashcards,
+  UpdateNote,
+} from "../ai/tools";
 import { Tool, ToolContent, ToolHeader } from "../ai-elements/tool";
 interface ChatwithpdfProps {
   fileId: Id<"files">;
 }
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+];
+function validateFiles(files: FileUIPart[] | undefined): boolean {
+  if (!files || files.length === 0) {
+    return true; // No files to validate, so it's valid
+  }
+
+  for (const file of files) {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error(`Invalid file type: ${file.filename}`, {
+        description: "Only images (PNG, JPG, WEBP, GIF) and PDFs are allowed.",
+      });
+      return false; // Found an invalid file
+    }
+  }
+  return true; // All files are valid
+}
 const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
   const file = useQuery(api.files.getFile, { fileId: fileId });
   const [input, setInput] = useState("");
+  const [webSearch, setWebSearch] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [studyMode, setStudyMode] = useState(false);
   const folder = useQuery(api.folders.getFolderById, {
     folderId: file?.file.folderId as Id<"folders">,
   });
@@ -150,68 +185,48 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
     });
 
   const { getToken } = useAuth();
-  //now lets use a use effect to initialize our messages from convex once
-  
+  //now lets use a use effect to initialize our messages from convex once and lets the usechat hook handle the rest
+
   const hasInitialized = useRef(false);
+
+  // 1. This effect RESETS the state when you switch chats (no change here)
   useEffect(() => {
-    // When activeChatId changes, it means we have a new chat.
-    // We must reset our "hasInitialized" flag to `false`.
-    // This gives the *other* effect permission to run.
     hasInitialized.current = false;
   }, [activeChatId]);
+
+  // 2. This effect LOADS the messages (MODIFIED)
   useEffect(() => {
-  
-    if (
-      initialMessages &&
-      initialMessages.length > 0 &&
-      !hasInitialized.current
-    ) {
-      hasInitialized.current = true;
+    // We check:
+    // 1. Are messages from Convex ready? (initialMessages is not undefined)
+    // 2. Have we not initialized?
+    // 3. (THE FIX) Is there NOT a pending message waiting to be sent?
+    if (initialMessages && !hasInitialized.current && !pendingMessage) {
       const transformedMessages = initialMessages.map((msg) => ({
         id: msg._id,
         role: msg.role as "user" | "assistant",
         content: msg.content,
         parts: msg.parts || [{ type: "text", text: msg.content }],
       })) as UIMessage[];
-      setMessages(transformedMessages);
-      console.log(" Loaded messages from Convex:", transformedMessages.length);
-    }
-  }, [initialMessages, setMessages, activeChatId]);
 
-  //now it is the pending message turn to send the message to convex
-    const pendingMessageProcessedRef = useRef(false);
-  useEffect(() => {
-    if (pendingMessage && activeChatId && !pendingMessageProcessedRef.current) {
-      const sendPendingMessage = async () => {
-        pendingMessageProcessedRef.current = true;
-        console.log("Sending pending message for chat:", activeChatId);
-        const token = await getToken({ template: "convex" });
-        const text = await extractTextFromPDF(file?.fileurl as string);
-        sendMessage(
-          {
-            text: pendingMessage.text || "",
-            files: pendingMessage.files,
-          },
-          {
-            body: {
-              convexToken: token,
-              contextFolder: contextFolder,
-              contextNote: contextNote,
-              pdfText: text,
-              fileDetails: {
-                fileName: file?.file.fileName,
-                fileType: file?.file.fileType,
-              },
-            },
-          }
+      setMessages(transformedMessages);
+
+      if (transformedMessages.length > 0) {
+        console.log(
+          " Loaded messages from Convex:",
+          transformedMessages.length
         );
-        setPendingMessage(null);
-      };
-      sendPendingMessage();
+      } else {
+        console.log("Initialized new, empty chat.");
+      }
+
+      hasInitialized.current = true;
     }
-  }, [pendingMessage, sendMessage, activeChatId, getToken]);
+  }, [initialMessages, setMessages, pendingMessage, activeChatId]);
 
   const handleSubmit = async (message: PromptInputMessage) => {
+    if (!validateFiles(message.files)) {
+      return; // Stop execution if files are invalid
+    }
     const hasText = Boolean(message.text);
     const hasAttachments = Boolean(message.files?.length);
     if (!(hasText || hasAttachments)) {
@@ -260,6 +275,9 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
               fileName: file?.file.fileName,
               fileType: file?.file.fileType,
             },
+            webSearch,
+            studyMode,
+            thinking,
           },
         }
       );
@@ -268,6 +286,54 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
       toast.error("Failed to send message");
     }
   };
+  // 3. This effect handles the first message (MODIFIED)
+  //now it is the pending message turn to send the message to convex
+  useEffect(() => {
+    if (pendingMessage && activeChatId) {
+      const sendPendingMessage = async () => {
+        console.log("Sending pending message for chat:", activeChatId);
+        const token = await getToken({ template: "convex" });
+        const text = await extractTextFromPDF(file?.fileurl as string);
+
+        sendMessage(
+          {
+            text: pendingMessage.text || "",
+            files: pendingMessage.files,
+          },
+          {
+            body: {
+              convexToken: token,
+              contextFolder: contextFolder,
+              contextNote: contextNote,
+              pdfText: text,
+              fileDetails: {
+                fileName: file?.file.fileName,
+                fileType: file?.file.fileType,
+              },
+              webSearch,
+              studyMode,
+              thinking,
+            },
+          }
+        );
+
+        setPendingMessage(null);
+
+        // (THE FIX) Since the other effect was skipped,
+        // we mark this chat as initialized NOW.
+        hasInitialized.current = true;
+      };
+      sendPendingMessage();
+    }
+  }, [
+    pendingMessage,
+    sendMessage,
+    activeChatId,
+    getToken,
+    contextFolder,
+    contextNote,
+    file,
+  ]);
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hidden p-2">
       <ChatHistoryPopover />
@@ -627,6 +693,28 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
             {/* websearch */}
+            <PromptInputButton
+              variant={webSearch ? "default" : "ghost"}
+              onClick={() => setWebSearch(!webSearch)}
+            >
+              <GlobeIcon size={16} />
+              <span>Search</span>
+            </PromptInputButton>
+            {/* study mode */}
+            <PromptInputButton
+              variant={studyMode ? "default" : "ghost"}
+              onClick={() => setStudyMode(!studyMode)}
+            >
+              <BookOpenIcon size={16} />
+              <span>Study</span>
+            </PromptInputButton>
+            <PromptInputButton
+              variant={thinking ? "default" : "ghost"}
+              onClick={() => setThinking(!thinking)}
+            >
+              <BrainIcon size={16} />
+              <span>Thinking</span>
+            </PromptInputButton>
           </PromptInputTools>
           {/* send button */}
           <PromptInputSubmit disabled={!input && !status} status={status} />

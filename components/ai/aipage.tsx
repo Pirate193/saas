@@ -43,9 +43,12 @@ import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import {
   AtSignIcon,
+  BookOpenIcon,
+  BrainIcon,
   CopyIcon,
   Folder,
   GlobeIcon,
+  Notebook,
   RefreshCcwIcon,
   X,
 } from "lucide-react";
@@ -113,26 +116,39 @@ function validateFiles(files: FileUIPart[] | undefined): boolean {
 const Chat = ({ chatId }: Props) => {
   const [input, setInput] = useState("");
   const [webSearch, setWebSearch] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [studyMode, setStudyMode] = useState(false);
   const initialMessages = useQuery(api.chat.getChat, { chatId: chatId }); //fetch the messages form convex
   const addMessage = useMutation(api.chat.addmessage);
-  const [contextFolder, setContexFolder] = useState<Doc<"folders"> | null>(
-    null
+  const updateChat = useMutation(api.chat.updateChat);
+  const [contextFolder, setContextFolder] = useState<Doc<"folders">[]>(
+    []
   );
+  const [contextNote, setContextNote] = useState<Doc<"notes">[]>([]);
+  
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [hasProcessedPendingMessage, setHasProcessedPendingMessage] =
     useState(false);
 
   const { getToken } = useAuth();
-  const allfolders = useQuery(api.folders.fetchFolders);
+  const allFolders = useQuery(api.folders.fetchFolders);
+    const allNotes = useQuery(api.notes.fetchNotes); // Fetches all notes
+
+  // Filtered data for the command list
+  const filteredFolders = allFolders?.filter(
+    (folder) =>
+      !contextFolder.find((cf) => cf._id === folder._id) && // Hide tagged
+      folder.name.toLowerCase().includes(search.toLowerCase())
+  );
+  const filteredNotes = allNotes?.filter(
+    (note) =>
+      !contextNote.find((cn) => cn._id === note._id) && // Hide tagged
+      note.title.toLowerCase().includes(search.toLowerCase())
+  );
   const pendingMessageProcessedRef = useRef(false);
-  const transformedMessages =
-    (initialMessages?.map((msg) => ({
-      id: msg._id,
-      role: msg.role as "user" | "assistant",
-      parts: msg.parts || [],
-      content: msg.content,
-    })) as UIMessage[]) || [];
+  
+  const {body}=useAiStore()
 
   const pendingMessage = useAiStore((state) => state.pendingMessage);
   const setPendingMessage = useAiStore((state) => state.setPendingMessage);
@@ -168,7 +184,7 @@ const Chat = ({ chatId }: Props) => {
         role: msg.role as "user" | "assistant",
         content: msg.content,
         parts: msg.parts || [{ type: "text", text: msg.content }],
-      })) as UIMessage[];
+      }));
 
       setMessages(transformedMessages);
       console.log(" Loaded messages from Convex:", transformedMessages.length);
@@ -197,9 +213,11 @@ const Chat = ({ chatId }: Props) => {
     } catch (error) {
       console.error("Failed to save user message:", error);
     }
+    console.log('contextFolder',contextFolder)
+    console.log('contextNote',contextNote)
     sendMessage(
       {
-        text: message.text || `Using context: ${contextFolder?.name}`,
+        text: message.text ||'',
         files: message.files,
       },
       {
@@ -207,6 +225,9 @@ const Chat = ({ chatId }: Props) => {
           webSearch: webSearch,
           contextFolder: contextFolder,
           convexToken: token,
+          contextNote: contextNote,
+          studyMode: studyMode,
+          thinking: thinking,
         },
       }
     );
@@ -225,7 +246,34 @@ const Chat = ({ chatId }: Props) => {
         pendingMessageProcessedRef.current = true;
 
         // Send the pending message
-        await handleSubmit(pendingMessage);
+        const token = await getToken({ template: "convex" });
+    try {
+      await addMessage({
+        chatId,
+        role: "user",
+        content: pendingMessage.text || "",
+        parts: [{ type: "text", text: pendingMessage.text }],
+      });
+    } catch (error) {
+      console.error("Failed to save user message:", error);
+    }
+    console.log('body',body)
+    sendMessage(
+      {
+        text: pendingMessage.text ||'',
+        files: pendingMessage.files,
+      },
+      {
+        body: {
+          webSearch: body.webSearch,
+          contextFolder: body.contextFolder,
+          convexToken: token,
+          contextNote: body.contextNote,
+          studyMode: body.studyMode,
+          thinking: body.thinking,
+        },
+      }
+    );
 
         // Clear the pending message from the store
         setPendingMessage(null);
@@ -234,13 +282,9 @@ const Chat = ({ chatId }: Props) => {
     };
 
     sendInitialMessage();
-  }, [pendingMessage, initialMessages, setPendingMessage]);
-
-  const filteredFolders = allfolders?.filter((f) =>
-    f.name.toLowerCase().includes(search.toLowerCase())
-  );
+  }, [pendingMessage, initialMessages, setPendingMessage,body,]);
   return (
-    <div className="max-w-4xl mx-auto p-6 relative size-full h-screen">
+    <div className=" p-6 relative size-full ">
       <div className="flex flex-col h-full  ">
         <div className="flex items-center gap-2">
           <SidebarTrigger size="icon-lg" />
@@ -446,90 +490,166 @@ const Chat = ({ chatId }: Props) => {
               {(attachment) => <PromptInputAttachment data={attachment} />}
             </PromptInputAttachments>
             <PromptInputHoverCard
-              open={popoverOpen}
-              onOpenChange={setPopoverOpen}
-            >
-              <PromptInputHoverCardTrigger>
-                <PromptInputButton
-                  className="!h-8"
-                  size="icon-sm"
-                  variant="outline"
-                >
-                  <AtSignIcon className="text-muted-foreground" size={12} />
-                </PromptInputButton>
-              </PromptInputHoverCardTrigger>
-              <PromptInputHoverCardContent className="w-[400px] p-0">
-                <PromptInputCommand>
-                  <PromptInputCommandInput
-                    className="border-none focus-visible:ring-0"
-                    placeholder="Add files, folders, docs..."
-                    value={search}
-                    onValueChange={setSearch}
-                  />
-                  <PromptInputCommandList>
-                    <PromptInputCommandEmpty className="p-3 text-muted-foreground text-sm">
-                      {allfolders === undefined
-                        ? "Loading..."
-                        : "No folders found."}
-                    </PromptInputCommandEmpty>
+            open={popoverOpen}
+            onOpenChange={setPopoverOpen}
+          >
+            <PromptInputHoverCardTrigger>
+              <PromptInputButton
+                className="!h-8"
+                size="icon-sm"
+                variant="outline"
+              >
+                <AtSignIcon className="text-muted-foreground" size={12} />
+              </PromptInputButton>
+            </PromptInputHoverCardTrigger>
+            <PromptInputHoverCardContent className="w-[400px] p-0">
+              <PromptInputCommand>
+                <PromptInputCommandInput
+                  className="border-none focus-visible:ring-0"
+                  placeholder="Add folders or notes..."
+                  value={search}
+                  onValueChange={setSearch}
+                />
+                <PromptInputCommandList>
+                  <PromptInputCommandEmpty className="p-3 text-muted-foreground text-sm">
+                    {allFolders === undefined || allNotes === undefined
+                      ? "Loading..."
+                      : "No items found."}
+                  </PromptInputCommandEmpty>
 
-                    {/* Show "Added" section if a folder is selected */}
-                    {contextFolder && (
-                      <PromptInputCommandGroup heading="Added">
+                  {/* Added Context (from arrays) */}
+                  {(contextFolder.length > 0 || contextNote.length > 0) && (
+                    <PromptInputCommandGroup heading="Added">
+                      {contextFolder.map((folder) => (
                         <PromptInputCommandItem
+                          key={folder._id}
+                          value={folder._id}
                           onSelect={() => {
-                            setContexFolder(null);
+                            setContextFolder((prev) =>
+                              prev.filter((f) => f._id !== folder._id)
+                            );
                             setPopoverOpen(false);
                           }}
                         >
                           <Folder />
-                          <span>{contextFolder.name}</span>
+                          <span>{folder.name}</span>
                           <span className="ml-auto">
                             <X className="size-4" />
                           </span>
                         </PromptInputCommandItem>
-                      </PromptInputCommandGroup>
-                    )}
-
-                    {/* Show all folders */}
-                    <PromptInputCommandGroup heading="Folders">
-                      {filteredFolders?.map((folder) => (
+                      ))}
+                      {contextNote.map((note) => (
                         <PromptInputCommandItem
-                          key={folder._id}
+                          key={note._id}
+                          value={note._id}
                           onSelect={() => {
-                            setContexFolder(folder);
+                            setContextNote((prev) =>
+                              prev.filter((n) => n._id !== note._id)
+                            );
                             setPopoverOpen(false);
-                            setSearch("");
                           }}
                         >
-                          <Folder className="text-primary" />
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm">
-                              {folder.name}
-                            </span>
-                            <span className="text-muted-foreground text-xs">
-                              {folder.description || "No description"}
-                            </span>
-                          </div>
+                          <Notebook />
+                          <span>{note.title}</span>
+                          <span className="ml-auto">
+                            <X className="size-4" />
+                          </span>
                         </PromptInputCommandItem>
                       ))}
                     </PromptInputCommandGroup>
-                  </PromptInputCommandList>
-                </PromptInputCommand>
-              </PromptInputHoverCardContent>
-            </PromptInputHoverCard>
+                  )}
 
-            {/* Display the selected context as a simple tag */}
-            {contextFolder && !popoverOpen && (
-              <PromptInputButton
-                size="sm"
-                variant="outline"
-                onClick={() => setPopoverOpen(true)}
+                  {/* Folders (adds to array) */}
+                  <PromptInputCommandGroup heading="Folders">
+                    {filteredFolders?.map((folder) => (
+                      <PromptInputCommandItem
+                        key={folder._id}
+                        value={folder._id}
+                        onSelect={() => {
+                          setContextFolder((prev) => [...prev, folder]);
+                          setPopoverOpen(false);
+                          setSearch("");
+                        }}
+                      >
+                        <Folder className="text-primary" />
+                        <span className="font-medium text-sm">
+                          {folder.name}
+                        </span>
+                      </PromptInputCommandItem>
+                    ))}
+                  </PromptInputCommandGroup>
+
+                  {/* Notes (adds to array) */}
+                  <PromptInputCommandGroup heading="Notes">
+                    {filteredNotes?.map((note) => (
+                      <PromptInputCommandItem
+                        key={note._id}
+                        value={note._id}
+                        onSelect={() => {
+                          setContextNote((prev) => [...prev, note]);
+                          setPopoverOpen(false);
+                          setSearch("");
+                        }}
+                      >
+                        <Notebook className="text-primary" />
+                        <span className="font-medium text-sm">
+                          {note.title}
+                        </span>
+                      </PromptInputCommandItem>
+                    ))}
+                  </PromptInputCommandGroup>
+                </PromptInputCommandList>
+              </PromptInputCommand>
+            </PromptInputHoverCardContent>
+          </PromptInputHoverCard>
+
+          {/* +++ 3. "X" ON TAGS UI +++ */}
+          {/* Tags for selected folders */}
+          {contextFolder.map((folder) => (
+            <PromptInputButton
+              key={folder._id}
+              size="sm"
+              variant="outline"
+              className="group max-w-[150px]"
+            >
+              <Folder size={12} className="mr-1.5 shrink-0" />
+              <span className="truncate">{folder.name}</span>
+              <button
+                className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
+                onClick={(e) => {
+                  e.stopPropagation(); // Stop popover from opening
+                  setContextFolder((prev) =>
+                    prev.filter((f) => f._id !== folder._id)
+                  );
+                }}
               >
-                <Folder size={12} />
-                <span>{contextFolder.name}</span>
-              </PromptInputButton>
-            )}
+                <X size={12} />
+              </button>
+            </PromptInputButton>
+          ))}
+          {/* Tags for selected notes */}
+          {contextNote.map((note) => (
+            <PromptInputButton
+              key={note._id}
+              size="sm"
+              variant="outline"
+              className="group max-w-[150px]"
+            >
+              <Notebook size={12} className="mr-1.5 shrink-0" />
+              <span className="truncate">{note.title}</span>
+              <button
+                className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
+                onClick={(e) => {
+                  e.stopPropagation(); // Stop popover from opening
+                  setContextNote((prev) =>
+                    prev.filter((n) => n._id !== note._id)
+                  );
+                }}
+              >
+                <X size={12} />
+              </button>
+            </PromptInputButton>
+          ))}
           </PromptInputHeader>
           <PromptInputBody>
             <PromptInputTextarea
@@ -551,6 +671,20 @@ const Chat = ({ chatId }: Props) => {
               >
                 <GlobeIcon size={16} />
                 <span>Search</span>
+              </PromptInputButton>
+              <PromptInputButton
+                variant={studyMode ? "default" : "ghost"}
+                onClick={() => setStudyMode(!studyMode)}
+              >
+                <BookOpenIcon size={16} />
+                <span>Study</span>
+              </PromptInputButton>
+              <PromptInputButton
+                variant={thinking ? "default" : "ghost"}
+                onClick={() => setThinking(!thinking)}
+              >
+                <BrainIcon size={16} />
+                <span>Thinking</span>
               </PromptInputButton>
             </PromptInputTools>
             <PromptInputSubmit disabled={!input && !status} status={status} />

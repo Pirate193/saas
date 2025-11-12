@@ -126,10 +126,9 @@ export function ChatHistoryPopover() {
 
         {/* ---- POPOVER CONTENT ---- */}
         <PopoverContent
-          className="w-80 p-0 flex flex-col"
-          style={{ maxHeight: '70vh' }}   
+         className="w-80 p-0 flex flex-col max-h-96"  
         >
-          
+           <ScrollArea className="flex-1 overflow-auto scrollbar-hidden">
             <div className="p-2">
               {otherChats && otherChats.length > 0 ? (
                 <div className="space-y-1">
@@ -195,7 +194,7 @@ export function ChatHistoryPopover() {
               )}
             </div>
       
-
+             </ScrollArea>
           {/* New-chat button (always at bottom) */}
           <div className="border-t p-2">
             <Button
