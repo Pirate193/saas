@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { ServerBlockNoteEditor } from "@blocknote/server-util";
+
+import { blockNoteToMarkdown } from "@/lib/convertmarkdowntoblock";
 
 
 export async function POST(req: Request) {
   const { markdown } = await req.json();
-  const editor = ServerBlockNoteEditor.create();
-  const result = await editor.tryParseMarkdownToBlocks(markdown);
+  const result = blockNoteToMarkdown(markdown);
   return NextResponse.json({ result });
 }

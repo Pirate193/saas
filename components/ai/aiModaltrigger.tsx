@@ -7,7 +7,7 @@ import { Sparkles } from 'lucide-react';
 export function AiTriggerButton({ context }: { context?: AiContext }) {
   const { onOpen } = useAiStore();
   return (
-    <div className='absolute bottom-2 right-4 rounded-full ' >
+    <div className='absolute bottom-6 right-4 rounded-full ' >
     <Button 
       size="icon" 
       onClick={() => onOpen(context)}

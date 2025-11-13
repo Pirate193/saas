@@ -55,7 +55,7 @@ const NoteComponent = ({ noteId }: NoteComponentProps) => {
       } finally {
         setIsSaving(false);
       }
-    }, 2000); // 2 second debounce
+    }, 5000); // 5 second debounce
   };
 
   // Debounced title save
@@ -105,13 +105,13 @@ const NoteComponent = ({ noteId }: NoteComponentProps) => {
   }
 
   return (
+    
       <div className="relative flex-1 p-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden   ">
         <BlocknoteEditor
           initialContent={note.content || ""}
           onChangeContent={handleContentChange}
         />
-           <div className="flex items-center gap-2 text-xs text-muted-foreground absolute bottom-2
-           right-4">
+           <div className="sticky bottom-0 flex items-center gap-2 text-xs text-muted-foreground justify-end pt-2 ">
           <span>
             Last edited: {new Date(note.updatedAt).toLocaleString()}
           </span>

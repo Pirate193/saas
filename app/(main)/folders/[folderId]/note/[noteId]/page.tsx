@@ -1,4 +1,5 @@
 
+import { AiTriggerButton } from '@/components/ai/aiModaltrigger';
 import Notecomponent from '@/components/notescomponents/noteComponent';
 import Notesheader from '@/components/notescomponents/notesheader';
 import { Id } from '@/convex/_generated/dataModel';
@@ -11,6 +12,7 @@ const Notespage = async ({params}:{params:Promise<{noteId:string}>}) => {
        <Notesheader noteId={noteId as Id<'notes'>} />
        
        <Notecomponent noteId={noteId as Id<'notes'> } />
+        <AiTriggerButton context={{type:'note',id:noteId as Id<'notes'>,name:'note'}} />
     </div>
   )
 }

@@ -1,24 +1,31 @@
 "use client";
 
 
+import { blockNoteToMarkdown, blockNoteToPlainText } from "@/lib/convertmarkdowntoblock";
 import { useState } from "react";
 
 
 export default function TestPage() {
-  const [markdown, setMarkdown] = useState("# Hello World\nThis is **bold** text!");
+  const [markdown, setMarkdown] = useState("");
   const [result, setResult] = useState("");
+ 
+  const handleConvert = () => {
+    const data = blockNoteToPlainText(markdown);
+    console.log(data);
+    setResult(data);
+  };
 
-  async function handleConvert() {
-   const response = await fetch("/inbox/test", {
-     method: "POST",
-     headers: {
-       "Content-Type": "application/json",
-     },
-     body: JSON.stringify({ markdown }),
-   });
-   const data = await response.json();
-   setResult(data.result);
-  }
+  // async function handleConvert() {
+  //  const response = await fetch("/inbox/test", {
+  //    method: "POST",
+  //    headers: {
+  //      "Content-Type": "application/json",
+  //    },
+  //    body: JSON.stringify({ markdown }),
+  //  });
+  //  const data = await response.json();
+  //  setResult(data.result);
+  // }
 
   return (
     <div className="p-6 space-y-4">

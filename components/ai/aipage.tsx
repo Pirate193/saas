@@ -470,6 +470,30 @@ const Chat = ({ chatId }: Props) => {
                       </Tool>
                     );
                   }
+                  if(part.type === 'tool-searchTheWeb'){
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-searchTheWeb"
+                          title="Searching the Web"
+                        />
+                       
+                      </Tool>
+                    );
+                  }
+                  if(part.type === 'tool-getNoteContent'){
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getNoteContent"
+                          title="Fetching Note Content"
+                        />
+                       
+                      </Tool>
+                    )
+                  }
 
                   return null;
                 })}
@@ -502,7 +526,7 @@ const Chat = ({ chatId }: Props) => {
                 <AtSignIcon className="text-muted-foreground" size={12} />
               </PromptInputButton>
             </PromptInputHoverCardTrigger>
-            <PromptInputHoverCardContent className="w-[400px] p-0">
+            <PromptInputHoverCardContent className="w-[400px] p-0 scrollbar-hidden">
               <PromptInputCommand>
                 <PromptInputCommandInput
                   className="border-none focus-visible:ring-0"
@@ -614,7 +638,8 @@ const Chat = ({ chatId }: Props) => {
             >
               <Folder size={12} className="mr-1.5 shrink-0" />
               <span className="truncate">{folder.name}</span>
-              <button
+              <span
+              role="button"
                 className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                 onClick={(e) => {
                   e.stopPropagation(); // Stop popover from opening
@@ -624,7 +649,7 @@ const Chat = ({ chatId }: Props) => {
                 }}
               >
                 <X size={12} />
-              </button>
+              </span>
             </PromptInputButton>
           ))}
           {/* Tags for selected notes */}
@@ -637,7 +662,8 @@ const Chat = ({ chatId }: Props) => {
             >
               <Notebook size={12} className="mr-1.5 shrink-0" />
               <span className="truncate">{note.title}</span>
-              <button
+              <span
+              role="button"
                 className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                 onClick={(e) => {
                   e.stopPropagation(); // Stop popover from opening
@@ -647,7 +673,7 @@ const Chat = ({ chatId }: Props) => {
                 }}
               >
                 <X size={12} />
-              </button>
+              </span>
             </PromptInputButton>
           ))}
           </PromptInputHeader>

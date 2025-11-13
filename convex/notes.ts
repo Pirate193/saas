@@ -32,6 +32,7 @@ export const createNote = mutation({
     args:{
         folderId:v.optional(v.id("folders")),
         title:v.string(),
+        content:v.optional(v.string()),
     },
     handler:async (ctx ,args)=>{
         const user = await ctx.auth.getUserIdentity();
@@ -42,6 +43,7 @@ export const createNote = mutation({
             userId:user.subject,
             folderId:args.folderId,
             title:args.title,
+            content:args.content,
             updatedAt:Date.now(),
             }
         );
@@ -118,5 +120,6 @@ export const updateContent = mutation({
             throw new Error("Note not found or access denied.");
         }
         await ctx.db.patch(args.noteId,{content:args.content, updatedAt:Date.now()});
+        return args.noteId;
     }
 })

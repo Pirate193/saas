@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Forward, Notebook, Brain, Folder, CheckCircle2, FileSearch } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
+import { useAiStore } from "@/stores/aiStore";
+import { useEffect } from "react";
 
-// --- TYPE GUARD HELPERS ---
 
-// createNote: output.note is a string ID
 type CreateNoteOutput = {
   success: boolean;
   note: string; // <-- This is a string (ID)
@@ -25,12 +25,14 @@ function isCreateNoteOutput(output: unknown): output is CreateNoteOutput {
 
 type UpdateNoteOutput = {
   success: boolean;
+   noteId: string;
   message: string;
 }
 function isUpdateNoteOutput(output: unknown): output is UpdateNoteOutput {
   return (
     typeof output === 'object' && output !== null &&
-    'success' in output && 'message' in output
+    'success' in output && 'message' in output && 'noteId' in output && // ✅ Check for noteId
+    typeof (output as any).noteId === 'string'
   );
 }
 
@@ -96,10 +98,18 @@ function isGetFlashcardOutput(output: unknown): output is GetFlashcardOutput {
 
 // --- COMPONENTS ---
 
-// CreateNote Component (Corrected)
 export const CreateNote = ({ output }: { output: unknown }) => {
   const router = useRouter();
-
+  const {setActiveNoteId,setIsNotePanelOpen}=useAiStore();
+  
+  useEffect(() => {
+    if (isCreateNoteOutput(output) && output.success) {
+      // 1. OPEN the side panel with the new note ID
+      setActiveNoteId(output.note as Id<'notes'>);
+      setIsNotePanelOpen(true);
+      // 2. TELL the app the AI is about to "live-write"
+    }
+  }, [output, setActiveNoteId, setIsNotePanelOpen]);
   if (!isCreateNoteOutput(output) || !output.success) {
     return null;
   }
@@ -109,7 +119,11 @@ export const CreateNote = ({ output }: { output: unknown }) => {
   const title = titleMatch ? titleMatch[1] : 'Note Created';
 
   return (
-    <Card className="group hover:shadow-lg transition-all cursor-pointer overflow-hidden flex flex-col border-green-500/30 bg-green-500/5">
+    <Card className="group  transition-all cursor-pointer overflow-hidden flex flex-col border-green-500/30 bg-green-500/5"
+    onClick={()=>{
+      setActiveNoteId(output.note as Id<'notes'>);
+      setIsNotePanelOpen(true);
+    }}>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -123,7 +137,8 @@ export const CreateNote = ({ output }: { output: unknown }) => {
             size="sm"
             className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             // Use the output.note string directly as the ID
-            onClick={() => router.push(`/notes/${output.note}`)}
+            onClick={() => {setIsNotePanelOpen(true);
+               setActiveNoteId(output.note as Id<'notes'>)}}
           >
             <Forward className="h-4 w-4" />
           </Button>
@@ -140,12 +155,26 @@ export const CreateNote = ({ output }: { output: unknown }) => {
 
 // UpdateNote Component (This was correct)
 export const UpdateNote = ({ output }: { output: unknown }) => {
+  const {setActiveNoteId,setIsNotePanelOpen}=useAiStore();
+   useEffect(() => {
+    if (isUpdateNoteOutput(output) && output.success) {
+      // 1. OPEN the side panel with the new note ID
+      setActiveNoteId(output.noteId as Id<'notes'>);
+      setIsNotePanelOpen(true);
+      // 2. TELL the app the AI is about to "live-write"
+    }
+  }, [output, setActiveNoteId, setIsNotePanelOpen]);
   if (!isUpdateNoteOutput(output) || !output.success) {
     return null;
   }
 
   return (
-    <Card className="group hover:shadow-lg transition-all cursor-pointer overflow-hidden flex flex-col border-blue-500/30 bg-blue-500/5">
+    <Card className="group  cursor-pointer overflow-hidden flex flex-col border-blue-500/30 bg-blue-500/5"
+    onClick={()=>{
+      setActiveNoteId(output.noteId as Id<'notes'>);
+      setIsNotePanelOpen(true);
+    }}
+    >
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -163,7 +192,7 @@ export const UpdateNote = ({ output }: { output: unknown }) => {
   );
 };
 
-// CreateFlashcard Component (Corrected)
+
 export const CreateFlashcard = ({ output }: { output: unknown }) => {
   if (!isGenerateFlashcardOutput(output) || !output.success) {
     return null;
@@ -183,7 +212,7 @@ export const CreateFlashcard = ({ output }: { output: unknown }) => {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {/* We just show the message, as we don't have the full flashcard object */}
+    
         <p className="text-xs text-muted-foreground truncate">
           {output.message}
         </p>
@@ -192,7 +221,7 @@ export const CreateFlashcard = ({ output }: { output: unknown }) => {
   );
 };
 
-// GetFolderItems Component (This was correct)
+
 export const GetFolderItems = ({ output }: { output: unknown }) => {
   if (!isGetFolderItemsOutput(output) || !output.success) {
     return null;
@@ -213,16 +242,15 @@ export const GetFolderItems = ({ output }: { output: unknown }) => {
       </CardHeader>
       <CardContent className="pt-0">
         <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>📝 {output.notes.length} notes</span>
-          <span>📎 {output.files.length} files</span>
-          <span>🎴 {output.flashcards.length} flashcards</span>
+          <span> {output.notes.length} notes</span>
+          <span>{output.files.length} files</span>
+          <span> {output.flashcards.length} flashcards</span>
         </div>
       </CardContent>
     </Card>
   );
 };
 
-// GetUserFlashcards Component (This was correct)
 export const GetUserFlashcards = ({ output }: { output: unknown }) => {
   if (!isGetUserFlashcardsOutput(output) || !output.success) {
     return null;
@@ -250,7 +278,7 @@ export const GetUserFlashcards = ({ output }: { output: unknown }) => {
   );
 };
 
-// GetFlashcard Component (This was correct)
+
 export const GetFlashcard = ({ output }: { output: unknown }) => {
   if (!isGetFlashcardOutput(output) || !output.success) {
     return null;

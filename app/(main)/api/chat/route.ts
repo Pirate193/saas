@@ -4,7 +4,7 @@ import { ConvexClient, ConvexHttpClient } from "convex/browser";
 import { z } from 'zod';
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { markdownToBlockNote } from "@/lib/convertmarkdowntoblock";
+import { blockNoteToMarkdown, markdownToBlockNote } from "@/lib/convertmarkdowntoblock";
 
 
 export const maxDuration = 30;
@@ -97,9 +97,9 @@ You are a direct, efficient AI assistant. Your goal is to provide comprehensive,
 ### Creating Notes:
 1.  Call \`getfolderitems\` to understand existing content.
 2.  Autonomously generate an appropriate title (e.g., "Introduction to AI").
-3.  Call \`createNote\` with the \`folderId\` and your generated \`title\`.
-4.  Immediately after, call \`updateNote\` with the new \`noteId\` and the full note content.
-5.  **IMPORTANT**: The \`content\` for \`updateNote\` MUST be written in standard **Markdown**.
+3.  Call \`createNote\` with the \`folderId\` and your generated \`title\` and \`content\` in markdown format when creating a note always make sure it has content  .
+4.   call \`updateNote\` with the new \`noteId\` and the full note content.
+5.  **IMPORTANT**: The \`content\` for \`updateNote\` and \`createNote\` MUST be written in standard **Markdown**.
 6.  Use Markdown headings (##, ###), lists (*, 1.), and bold text (**) to structure the note.
 
 `;
@@ -220,16 +220,19 @@ export function createTools(convex: ConvexHttpClient) {
     }),
     
     createNote: tool({
-      description: 'Create a new note with a title. You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title.',
+      description: 'Create a new note with a title and content in markdown format . You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title if they have provided a topic .',
       inputSchema: z.object({
         folderId: z.string().describe('The folder ID where the note should be created'),
         title: z.string().describe('The title for the note (you generate this based on the topic)'),
+        content: z.string().describe('The content for the note (you generate this based on the topic)in markdown format'),
       }),
-      execute: async ({ folderId, title }) => {
+      execute: async ({ folderId, title ,content }) => {
         try {
+          const blocks = markdownToBlockNote(content);
           const note = await convex.mutation(api.notes.createNote, {
             folderId: folderId as Id<'folders'>,
             title: title,
+            content: blocks,
           });
           console.log('created note', note);
           return { 
@@ -248,7 +251,7 @@ export function createTools(convex: ConvexHttpClient) {
     }),
     
     updateNote: tool({
-      description: 'Update the content of an existing note. Content MUST be a stringified JSON array of BlockNote blocks with proper structure.',
+      description: 'Update the content of an existing note. Content MUST be markdown',
       inputSchema: z.object({
         noteId: z.string().describe('The note ID to update'),
         content: z.string().describe('The full content of the note, written in Markdown format. '),
@@ -264,7 +267,7 @@ export function createTools(convex: ConvexHttpClient) {
           console.log('updated note', note);
           return { 
             success: true, 
-            note,
+            noteId: noteId,
             message: `Note content updated successfully` 
           };
         } catch (error) {
@@ -273,6 +276,27 @@ export function createTools(convex: ConvexHttpClient) {
             success: false, 
             error: `Failed to update note: ${error}` 
           };
+        }
+      }
+    }),
+    getNoteContent:tool({
+      description: 'Get the content of a specific note',
+      inputSchema:z.object({
+        noteId:z.string().describe('The note ID to fetch'),
+      }),
+      execute: async ({noteId})=>{
+        try{
+          const note=await convex.query(api.notes.getNoteId,{noteId:noteId as Id<'notes'>})
+          
+          if(note.content === undefined){
+            return {success:false,error:'Note content not found'}
+          }
+          const markdown = blockNoteToMarkdown(note.content)
+          return {success:true,markdown}
+        }
+        catch(error){
+          console.log('note content error',error)
+          return {success:false,error: `Failed to get note content: ${error}`}
         }
       }
     }),
@@ -359,5 +383,6 @@ export function createTools(convex: ConvexHttpClient) {
         }
       }
     }),
+
   };
 }

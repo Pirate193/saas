@@ -146,3 +146,204 @@
     scrollbar-width: none; /* Firefox */
   }
 }
+
+.tldraw__editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  /* Override any conflicting BlockNote styles */
+  font-family: var(--tl-font-draw, "Shantell Sans", system-ui, sans-serif);
+  touch-action: none;
+}
+
+/* Make sure the canvas is visible and properly sized */
+.tldraw__editor .tl-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* ============================================
+   THEME SUPPORT
+   ============================================ */
+
+/* Light theme (default) */
+.tldraw__editor[data-theme="light"] {
+  --color-background: #ffffff;
+  --color-text: #1d1d1d;
+  color-scheme: light;
+}
+
+/* Dark theme */
+.tldraw__editor[data-theme="dark"] {
+  --color-background: #1d1d1d;
+  --color-text: #ffffff;
+  color-scheme: dark;
+}
+
+/* ============================================
+   FIX POTENTIAL CONFLICTS WITH BLOCKNOTE
+   ============================================ */
+
+/* Ensure tldraw buttons don't inherit BlockNote button styles */
+.tldraw__editor button {
+  all: unset;
+  /* Then re-apply tldraw's button styles */
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent BlockNote's text selection styles from affecting tldraw */
+.tldraw__editor * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+/* But allow text selection in tldraw's text shapes */
+.tldraw__editor .tl-text-shape * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
+/* ============================================
+   TOOLBAR AND UI IMPROVEMENTS
+   ============================================ */
+
+/* Ensure toolbar is visible and properly positioned */
+.tldraw__editor .tlui-toolbar {
+  z-index: 10;
+}
+
+/* Make sure the menu buttons are clickable */
+.tldraw__editor .tlui-button {
+  pointer-events: auto;
+}
+
+/* Style the toolbar to look clean */
+.tldraw__editor .tlui-toolbar__inner {
+  background: var(--color-panel, white);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+/* On smaller screens, ensure the toolbar is accessible */
+@media (max-width: 768px) {
+  .tldraw__editor .tlui-toolbar {
+    bottom: 8px;
+  }
+}
+
+/* ============================================
+   LOADING STATE
+   ============================================ */
+
+/* Style the loading indicator */
+.tldraw-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ============================================
+   PREVENT SCROLLING ISSUES
+   ============================================ */
+
+/* Prevent the parent BlockNote editor from scrolling when using tldraw */
+.tldraw__editor {
+  overscroll-behavior: contain;
+}
+
+/* ============================================
+   WATERMARK (if you don't have a license)
+   ============================================ */
+
+/* Style the "Made with tldraw" watermark to be less intrusive */
+.tldraw__editor .tlui-debug-panel {
+  opacity: 0.6;
+  font-size: 10px;
+}
+
+.tldraw__editor .tlui-debug-panel:hover {
+  opacity: 1;
+}
+
+/* ============================================
+   CUSTOM STYLING FOR YOUR BRAND (OPTIONAL)
+   ============================================ */
+
+/* You can customize colors to match your app */
+.tldraw__editor {
+  /* Primary color for selected items */
+  --color-selected: #2563eb;
+  
+  /* Accent color for UI elements */
+  --color-accent: #3b82f6;
+  
+  /* Warning colors */
+  --color-warn: #f59e0b;
+  
+  /* Error colors */
+  --color-error: #ef4444;
+}
+
+/* ============================================
+   PERFORMANCE OPTIMIZATIONS
+   ============================================ */
+
+/* Enable hardware acceleration for smoother performance */
+.tldraw__editor canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Optimize rendering */
+.tldraw__editor {
+  contain: layout style paint;
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Ensure focus indicators are visible */
+.tldraw__editor *:focus-visible {
+  outline: 2px solid var(--color-selected, #2563eb);
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .tldraw__editor {
+    --color-selected: #0000ff;
+  }
+}
+
+/* ============================================
+   PRINT STYLES (OPTIONAL)
+   ============================================ */
+
+@media print {
+  .tldraw__editor .tlui-toolbar,
+  .tldraw__editor .tlui-menu {
+    display: none;
+  }
+  
+  .tldraw__editor {
+    border: none;
+  }
+}

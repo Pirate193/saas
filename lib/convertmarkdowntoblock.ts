@@ -244,8 +244,112 @@ export function isValidBlockNoteJSON(json: string): boolean {
 }
 
 /**
+ * Converts BlockNote JSON format back to markdown
+ * Useful for exporting notes, feeding to other LLMs, or creating backups
+ */
+export function blockNoteToMarkdown(blockNoteJSON: string): string {
+  try {
+    const blocks: BlockNoteBlock[] = JSON.parse(blockNoteJSON);
+    
+    if (!Array.isArray(blocks)) {
+      throw new Error('Invalid BlockNote format: expected array of blocks');
+    }
+    
+    const lines: string[] = [];
+    
+    for (const block of blocks) {
+      const line = blockToMarkdown(block);
+      if (line !== null) {
+        lines.push(line);
+      }
+    }
+    
+    return lines.join('\n');
+  } catch (error) {
+    console.error('Error converting BlockNote to Markdown:', error);
+    return '';
+  }
+}
+
+function blockToMarkdown(block: BlockNoteBlock): string | null {
+  const content = contentToMarkdown(block.content);
+  
+  switch (block.type) {
+    case 'heading': {
+      const level = block.props.level || 1;
+      const hashes = '#'.repeat(level);
+      return `${hashes} ${content}`;
+    }
+    
+    case 'paragraph': {
+      // Empty paragraphs become blank lines
+      return content || '';
+    }
+    
+    case 'bulletListItem': {
+      return `- ${content}`;
+    }
+    
+    case 'numberedListItem': {
+      // Note: We lose the actual number, defaulting to 1.
+      // Could be enhanced to track list numbering
+      return `1. ${content}`;
+    }
+    
+    case 'checkListItem': {
+      const checked = block.props.checked ? 'x' : ' ';
+      return `- [${checked}] ${content}`;
+    }
+    
+    case 'codeBlock': {
+      const language = block.props.language || '';
+      const code = block.content.map(c => c.text).join('');
+      return `\`\`\`${language}\n${code}\n\`\`\``;
+    }
+    
+    default: {
+      // Unknown block types -> treat as paragraph
+      return content || '';
+    }
+  }
+}
+
+function contentToMarkdown(content: TextContent[]): string {
+  if (!content || content.length === 0) {
+    return '';
+  }
+  
+  return content.map(segment => {
+    let text = segment.text;
+    const styles = segment.styles || {};
+    
+    // Apply styles in order: code > bold > italic
+    // This prevents nested formatting issues
+    
+    if (styles.code) {
+      return `\`${text}\``;
+    }
+    
+    if (styles.bold && styles.italic) {
+      return `***${text}***`;
+    }
+    
+    if (styles.bold) {
+      return `**${text}**`;
+    }
+    
+    if (styles.italic) {
+      return `*${text}*`;
+    }
+    
+    return text;
+  }).join('');
+}
+
+/**
  * Example usage:
  * 
+ * // MARKDOWN TO BLOCKNOTE
  * const markdown = `# Introduction to React
  * 
  * React is a **JavaScript library** for building *user interfaces*.
@@ -271,4 +375,71 @@ export function isValidBlockNoteJSON(json: string): boolean {
  * `;
  * 
  * const blockNoteJSON = markdownToBlockNote(markdown);
+ * console.log(blockNoteJSON); // Valid BlockNote JSON
+ * 
+ * // BLOCKNOTE TO MARKDOWN (reverse)
+ * const backToMarkdown = blockNoteToMarkdown(blockNoteJSON);
+ * console.log(backToMarkdown); // Original markdown
+ * 
+ * // ROUND-TRIP TEST
+ * const isEqual = markdown.trim() === backToMarkdown.trim();
+ * console.log('Round-trip successful:', isEqual);
  */
+
+/**
+ * Utility: Convert BlockNote to plain text (no formatting)
+ * Useful for search, previews, or character counts
+ */
+export function blockNoteToPlainText(blockNoteJSON: string): string {
+  try {
+    const blocks: BlockNoteBlock[] = JSON.parse(blockNoteJSON);
+    
+    const texts = blocks.map(block => {
+      return block.content
+        .map(c => c.text)
+        .join('')
+        .trim();
+    }).filter(Boolean);
+    
+    return texts.join(' ');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Utility: Get word count from BlockNote content
+ */
+export function getBlockNoteWordCount(blockNoteJSON: string): number {
+  const plainText = blockNoteToPlainText(blockNoteJSON);
+  if (!plainText) return 0;
+  
+  return plainText.split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Utility: Get character count from BlockNote content
+ */
+export function getBlockNoteCharCount(blockNoteJSON: string): number {
+  const plainText = blockNoteToPlainText(blockNoteJSON);
+  return plainText.length;
+}
+
+/**
+ * Utility: Extract headings from BlockNote content
+ * Useful for generating table of contents
+ */
+export function extractHeadings(blockNoteJSON: string): Array<{ level: number; text: string }> {
+  try {
+    const blocks: BlockNoteBlock[] = JSON.parse(blockNoteJSON);
+    
+    return blocks
+      .filter(block => block.type === 'heading')
+      .map(block => ({
+        level: block.props.level || 1,
+        text: block.content.map(c => c.text).join(''),
+      }));
+  } catch {
+    return [];
+  }
+}
