@@ -111,17 +111,6 @@ const NoteComponent = ({ noteId }: NoteComponentProps) => {
           initialContent={note.content || ""}
           onChangeContent={handleContentChange}
         />
-           <div className="sticky bottom-0 flex items-center gap-2 text-xs text-muted-foreground justify-end pt-2 ">
-          <span>
-            Last edited: {new Date(note.updatedAt).toLocaleString()}
-          </span>
-          {isSaving && (
-            <span className="flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Saving...
-            </span>
-          )}
-        </div>
       </div>
   );
 };

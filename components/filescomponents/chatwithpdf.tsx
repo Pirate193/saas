@@ -640,7 +640,8 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
             >
               <Folder size={12} className="mr-1.5 shrink-0" />
               <span className="truncate">{folder.name}</span>
-              <button
+              <span
+              role="button"
                 className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                 onClick={(e) => {
                   e.stopPropagation(); // Stop popover from opening
@@ -650,7 +651,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
                 }}
               >
                 <X size={12} />
-              </button>
+              </span>
             </PromptInputButton>
           ))}
           {/* Tags for selected notes */}
@@ -663,7 +664,8 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
             >
               <Notebook size={12} className="mr-1.5 shrink-0" />
               <span className="truncate">{note.title}</span>
-              <button
+              <span
+              role="button"
                 className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                 onClick={(e) => {
                   e.stopPropagation(); // Stop popover from opening
@@ -673,7 +675,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
                 }}
               >
                 <X size={12} />
-              </button>
+              </span>
             </PromptInputButton>
           ))}
         </PromptInputHeader>

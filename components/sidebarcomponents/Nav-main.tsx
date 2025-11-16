@@ -1,12 +1,14 @@
 "use client"
 
-import { type LucideIcon } from "lucide-react"
+import { Search, type LucideIcon } from "lucide-react"
 
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useState } from "react"
+import { SearchModal } from "../searchModal"
 
 export function NavMain({
   items,
@@ -18,8 +20,16 @@ export function NavMain({
     isActive?: boolean
   }[]
 }) {
+  const [open,setOpen]=useState(false)
   return (
+    <>
     <SidebarMenu  >
+      <SidebarMenuItem>
+        <SidebarMenuButton onClick={()=>setOpen(true)}>
+            <Search />
+            <span>Search</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
       {items.map((item) => (
         <SidebarMenuItem key={item.title}>
           <SidebarMenuButton asChild isActive={item.isActive}>
@@ -31,6 +41,8 @@ export function NavMain({
         </SidebarMenuItem>
       ))}
     </SidebarMenu>
+    <SearchModal open={open} onOpenChange={setOpen} />
+    </>
   )
 }
 

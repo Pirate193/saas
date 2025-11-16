@@ -1,52 +1,18 @@
-"use client";
+'use client'
+import TiptapEditor from '@/components/notescomponents/noveleditor/TipTapEditor'
+import React from 'react'
 
-
-import { blockNoteToMarkdown, blockNoteToPlainText } from "@/lib/convertmarkdowntoblock";
-import { useState } from "react";
-
-
-export default function TestPage() {
-  const [markdown, setMarkdown] = useState("");
-  const [result, setResult] = useState("");
- 
-  const handleConvert = () => {
-    const data = blockNoteToPlainText(markdown);
-    console.log(data);
-    setResult(data);
-  };
-
-  // async function handleConvert() {
-  //  const response = await fetch("/inbox/test", {
-  //    method: "POST",
-  //    headers: {
-  //      "Content-Type": "application/json",
-  //    },
-  //    body: JSON.stringify({ markdown }),
-  //  });
-  //  const data = await response.json();
-  //  setResult(data.result);
-  // }
-
+const Page = () => {
+  const [content, setContent] = React.useState('')
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-xl font-bold"> Markdown → BlockNote JSON Tester</h1>
-
-      <textarea
-        value={markdown}
-        onChange={(e) => setMarkdown(e.target.value)}
-        className="w-full h-40 border p-2 rounded"
-      />
-
-      <button
-        onClick={handleConvert}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        Convert
-      </button>
-
-      <pre className="bg-gray-900 text-green-300 p-4 rounded overflow-auto text-sm h-96">
-        {result}
-      </pre>
+      <div>
+      <TiptapEditor
+      
+      initialContent={content}
+      onChangeContent={setContent}/>
+      <p>{content}</p> 
     </div>
-  );
+  )
 }
+
+export default Page

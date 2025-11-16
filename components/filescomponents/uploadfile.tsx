@@ -1,6 +1,6 @@
 'use client'
 import { api } from "@/convex/_generated/api"
-import { useMutation, useQuery } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog"
 import { useCallback, useRef, useState } from "react"
 import { Input } from "../ui/input"
@@ -9,6 +9,7 @@ import { CheckCircle2, FileIcon, Loader2, Plus, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Id } from "@/convex/_generated/dataModel"
 import { toast } from "sonner"
+import extractTextFromPDF from "@/lib/pdfparse"
 
 interface Props {
     open:boolean,
@@ -37,6 +38,7 @@ const ALLOWED_TYPES = [
 const Uploadfile = ({open,onclose,folderId}:Props) => {
     const upload = useMutation(api.files.uploadFile)
     const generateUrl = useMutation(api.files.generateUploadUrl);
+    const rag = useAction(api.rag.addFile);
    const [isDragOver, setIsDragOver] = useState(false);
    const [files,setFiles]=useState<FileUplaodStatus[]>([]);
    const [isUplaoding, setIsUplaoding] = useState(false);
@@ -104,11 +106,19 @@ const uploadSingleFile = async (fileStatus:FileUplaodStatus):Promise<void>=>{
             throw new Error("Failed to upload file");
         }
         const {storageId}= await result.json();
-        const fileuploaded = await upload({
+        const {fileId,fileurl} = await upload({
             folderId:folderId,
             fileName:file.name,
             fileType:file.type,
             storageId:storageId
+        })
+        const text = await extractTextFromPDF(fileurl)
+
+        await rag({
+          folderId:folderId as Id<'folders'> ,
+          fileId:fileId,
+          text:text,
+          fileName:file.name
         })
         setFiles((prev)=>prev.map((f)=>
         f.file === file ? {...f,status:"success",progress:100}:f));

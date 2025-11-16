@@ -7,121 +7,36 @@ import { Forward, Notebook, Brain, Folder, CheckCircle2, FileSearch } from "luci
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import { useAiStore } from "@/stores/aiStore";
-import { useEffect } from "react";
-
-
-type CreateNoteOutput = {
-  success: boolean;
-  note: string; // <-- This is a string (ID)
-  message: string;
-}
-function isCreateNoteOutput(output: unknown): output is CreateNoteOutput {
-  return (
-    typeof output === 'object' && output !== null &&
-    'success' in output && 'note' in output && 
-    typeof (output as any).note === 'string' // Check for string
-  );
-}
-
-type UpdateNoteOutput = {
-  success: boolean;
-   noteId: string;
-  message: string;
-}
-function isUpdateNoteOutput(output: unknown): output is UpdateNoteOutput {
-  return (
-    typeof output === 'object' && output !== null &&
-    'success' in output && 'message' in output && 'noteId' in output && // ✅ Check for noteId
-    typeof (output as any).noteId === 'string'
-  );
-}
-
-// generateFlashcards: output.flashcard is a string ID
-type GenerateFlashcardOutput = {
-  success: boolean;
-  flashcard: string; // <-- This is a string (ID)
-  message: string;
-}
-function isGenerateFlashcardOutput(output: unknown): output is GenerateFlashcardOutput {
-  return (
-    typeof output === 'object' && output !== null &&
-    'success' in output && 'flashcard' in output && 
-    typeof (output as any).flashcard === 'string' // Check for string
-  );
-}
-
-// getfolderitems: Returns full arrays of objects
-type GetFolderItemsOutput = {
-  success: boolean;
-  notes: Doc<"notes">[];
-  files: Doc<"files">[];
-  flashcards: Doc<"flashcards">[];
-  summary: string;
-}
-function isGetFolderItemsOutput(output: unknown): output is GetFolderItemsOutput {
-  return (
-    typeof output === 'object' && output !== null &&
-    'success' in output && 'notes' in output && Array.isArray((output as any).notes)
-  );
-}
-
-// getUserFlashcards: Returns a full array of objects
-type GetUserFlashcardsOutput = {
-  success: boolean;
-  flashcards: Doc<"flashcards">[];
-  count: number;
-}
-function isGetUserFlashcardsOutput(output: unknown): output is GetUserFlashcardsOutput {
-  return (
-    typeof output === 'object' && output !== null &&
-    'success' in output && 'flashcards' in output && Array.isArray((output as any).flashcards)
-  );
-}
-
-// getFlashcard: Returns a full object
-type GetFlashcardOutput = {
-  success: boolean;
-  flashcard: Doc<"flashcards">;
-  stats: {
-    successRate: string;
-    totalReviews: number;
-    correctReviews: number;
-    isStruggling: boolean;
-  }
-}
-function isGetFlashcardOutput(output: unknown): output is GetFlashcardOutput {
-  return (
-    typeof output === 'object' && output !== null &&
-    'success' in output && 'flashcard' in output && 'stats' in output
-  );
-}
+import { useEffect, useMemo } from "react";
+import {createNoteOutputSchema,updateNoteOutputSchema,generateFlashcardOutputSchema,getFolderItemsOutputSchema,getUserFlashcardsOutputSchema,getFlashcardOutputSchema} from "@/types/aitoolstypes"
 
 // --- COMPONENTS ---
 
 export const CreateNote = ({ output }: { output: unknown }) => {
   const router = useRouter();
   const {setActiveNoteId,setIsNotePanelOpen}=useAiStore();
+  const parsed = useMemo(()=>createNoteOutputSchema.safeParse(output),[output])
   
   useEffect(() => {
-    if (isCreateNoteOutput(output) && output.success) {
-      // 1. OPEN the side panel with the new note ID
-      setActiveNoteId(output.note as Id<'notes'>);
+    if (parsed.success && parsed.data.success) {
+     
+      setActiveNoteId(parsed.data.note as Id<'notes'>);
       setIsNotePanelOpen(true);
-      // 2. TELL the app the AI is about to "live-write"
     }
   }, [output, setActiveNoteId, setIsNotePanelOpen]);
-  if (!isCreateNoteOutput(output) || !output.success) {
+  if (!parsed.success || !parsed.data.success) {
     return null;
   }
+  const { data } = parsed;
 
   // Extract title from message, since output.note is just an ID
-  const titleMatch = output.message.match(/Created note: ["'](.+?)["']/);
+  const titleMatch = data.message.match(/Created note: ["'](.+?)["']/);
   const title = titleMatch ? titleMatch[1] : 'Note Created';
 
   return (
     <Card className="group  transition-all cursor-pointer overflow-hidden flex flex-col border-green-500/30 bg-green-500/5"
     onClick={()=>{
-      setActiveNoteId(output.note as Id<'notes'>);
+      setActiveNoteId(data.note as Id<'notes'>);
       setIsNotePanelOpen(true);
     }}>
       <CardHeader>
@@ -138,7 +53,7 @@ export const CreateNote = ({ output }: { output: unknown }) => {
             className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             // Use the output.note string directly as the ID
             onClick={() => {setIsNotePanelOpen(true);
-               setActiveNoteId(output.note as Id<'notes'>)}}
+               setActiveNoteId(data.note as Id<'notes'>)}}
           >
             <Forward className="h-4 w-4" />
           </Button>
@@ -156,22 +71,21 @@ export const CreateNote = ({ output }: { output: unknown }) => {
 // UpdateNote Component (This was correct)
 export const UpdateNote = ({ output }: { output: unknown }) => {
   const {setActiveNoteId,setIsNotePanelOpen}=useAiStore();
+  const parsed = useMemo(()=>updateNoteOutputSchema.safeParse(output),[output])
    useEffect(() => {
-    if (isUpdateNoteOutput(output) && output.success) {
-      // 1. OPEN the side panel with the new note ID
-      setActiveNoteId(output.noteId as Id<'notes'>);
+    if (parsed.success && parsed.data.success) {
+      setActiveNoteId(parsed.data.note as Id<'notes'>);
       setIsNotePanelOpen(true);
-      // 2. TELL the app the AI is about to "live-write"
     }
   }, [output, setActiveNoteId, setIsNotePanelOpen]);
-  if (!isUpdateNoteOutput(output) || !output.success) {
+  if (!parsed.success || !parsed.data.success) {
     return null;
   }
-
+ const {data}= parsed;
   return (
     <Card className="group  cursor-pointer overflow-hidden flex flex-col border-blue-500/30 bg-blue-500/5"
     onClick={()=>{
-      setActiveNoteId(output.noteId as Id<'notes'>);
+      setActiveNoteId(data.note as Id<'notes'>);
       setIsNotePanelOpen(true);
     }}
     >
@@ -186,7 +100,7 @@ export const UpdateNote = ({ output }: { output: unknown }) => {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <p className="text-xs text-muted-foreground">{output.message}</p>
+        <p className="text-xs text-muted-foreground">{data.message}</p>
       </CardContent>
     </Card>
   );
@@ -194,10 +108,11 @@ export const UpdateNote = ({ output }: { output: unknown }) => {
 
 
 export const CreateFlashcard = ({ output }: { output: unknown }) => {
-  if (!isGenerateFlashcardOutput(output) || !output.success) {
+  const parsed = useMemo(()=>generateFlashcardOutputSchema.safeParse(output),[output])
+  if (!parsed.success || !parsed.data.success) {
     return null;
   }
-
+ const {data}= parsed;
   return (
     <Card className="border-purple-500/30 bg-purple-500/5">
       <CardHeader>
@@ -214,7 +129,7 @@ export const CreateFlashcard = ({ output }: { output: unknown }) => {
       <CardContent className="pt-0">
     
         <p className="text-xs text-muted-foreground truncate">
-          {output.message}
+          {data.message}
         </p>
       </CardContent>
     </Card>
@@ -223,10 +138,11 @@ export const CreateFlashcard = ({ output }: { output: unknown }) => {
 
 
 export const GetFolderItems = ({ output }: { output: unknown }) => {
-  if (!isGetFolderItemsOutput(output) || !output.success) {
+  const parsed = useMemo(()=>getFolderItemsOutputSchema.safeParse(output),[output])
+  if (!parsed.success || !parsed.data.success) {
     return null;
   }
-
+ const {data}= parsed;
   return (
     <Card className="border-primary/30 bg-primary/5">
       <CardHeader>
@@ -242,9 +158,9 @@ export const GetFolderItems = ({ output }: { output: unknown }) => {
       </CardHeader>
       <CardContent className="pt-0">
         <div className="flex gap-4 text-xs text-muted-foreground">
-          <span> {output.notes.length} notes</span>
-          <span>{output.files.length} files</span>
-          <span> {output.flashcards.length} flashcards</span>
+          <span> {data.notes.length} notes</span>
+          <span>{data.files.length} files</span>
+          <span> {data.flashcards.length} flashcards</span>
         </div>
       </CardContent>
     </Card>
@@ -252,10 +168,11 @@ export const GetFolderItems = ({ output }: { output: unknown }) => {
 };
 
 export const GetUserFlashcards = ({ output }: { output: unknown }) => {
-  if (!isGetUserFlashcardsOutput(output) || !output.success) {
+  const parsed = useMemo(()=>getUserFlashcardsOutputSchema.safeParse(output),[output])
+  if (!parsed.success || !parsed.data.success) {
     return null;
   }
-
+ const {data}= parsed;
   return (
     <Card className="border-amber-500/30 bg-amber-500/5">
       <CardHeader>
@@ -271,7 +188,7 @@ export const GetUserFlashcards = ({ output }: { output: unknown }) => {
       </CardHeader>
       <CardContent className="pt-0">
         <p className="text-xs text-muted-foreground">
-          Found {output.count} flashcard{output.count !== 1 ? 's' : ''}
+          Found {data.count} flashcard{data.count !== 1 ? 's' : ''}
         </p>
       </CardContent>
     </Card>
@@ -280,10 +197,11 @@ export const GetUserFlashcards = ({ output }: { output: unknown }) => {
 
 
 export const GetFlashcard = ({ output }: { output: unknown }) => {
-  if (!isGetFlashcardOutput(output) || !output.success) {
+  const parsed = useMemo(()=>getFlashcardOutputSchema.safeParse(output),[output])
+  if (!parsed.success || !parsed.data.success) {
     return null;
   }
-
+ const {data}= parsed;
   return (
     <Card className="border-teal-500/30 bg-teal-500/5">
       <CardHeader>
@@ -299,11 +217,11 @@ export const GetFlashcard = ({ output }: { output: unknown }) => {
       </CardHeader>
       <CardContent className="pt-0">
         <p className="text-xs text-muted-foreground truncate mb-1">
-          {output.flashcard.question}
+          {data.flashcard.question}
         </p>
         <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>Success: {output.stats.successRate}</span>
-          <span>Reviews: {output.stats.totalReviews}</span>
+          <span>Success: {data.stats.successRate}</span>
+          <span>Reviews: {data.stats.totalReviews}</span>
         </div>
       </CardContent>
     </Card>

@@ -12,6 +12,7 @@ import {
   CreditCard,
   File as FileIcon,
   Sparkles,
+  Trash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Id } from "@/convex/_generated/dataModel";
@@ -116,6 +117,7 @@ export function FolderTreeItem({
   const counts = getFolderItemCounts(folder._id);       // Count notes and subfolders
   const isActive = pathname === `/folders/${folder._id}`; // Is user currently viewing this folder?
   const createNote = useMutation(api.notes.createNote)
+  const deleteFile = useMutation(api.files.deleteFile)
 
 
   const [isCreateSubfolderOpen, setIsCreateSubfolderOpen] = useState(false); //subfolder state
@@ -125,6 +127,10 @@ export function FolderTreeItem({
   const [openUploadDialog,setOpenUploadDialog] = useState(false); //upload dialog state
   const [openCreateFlashcardDialog,setOpenCreateFlashcardDialog] = useState(false); //create flashcard dialog state
   const [openAiFlashcardDialog,setOpenAiFlashcardDialog] = useState(false); //ai flashcard dialog state
+  const [openDeleteFileDialog,setOpenDeleteFileDialog] = useState(false); //delete file dialog state
+
+  const [fileToDelete,setFileToDelete] = useState<Id<'files'> | null>(null);
+ const [filenametoDelete,setFilenameToDelete] = useState<string | null>(null);
   // ============================================
   // EVENT HANDLERS
   // ============================================
@@ -145,15 +151,7 @@ export function FolderTreeItem({
     setIsExpanded(!isExpanded);
   };
 
-  /**
-   * Handler for creating a new subfolder
-   * TODO: Implement with Convex mutation
-   */
-  const handleCreateSubfolder = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log("Create subfolder in:", folder._id);
-    // TODO: Call Convex mutation: api.folders.create({ name: "New Folder", parentId: folder._id })
-  };
+
 
   /**
    * Handler for creating a new note
@@ -166,26 +164,8 @@ export function FolderTreeItem({
     // Then navigate to the new note
   };
 
-  /**
-   * Handler for creating a new flashcard
-   * TODO: Implement with Convex mutation
-   */
-  const handleCreateFlashcard = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log("Create flashcard in:", folder._id);
-    // TODO: Call Convex mutation: api.flashcards.create({ folderId: folder._id })
-  };
 
-  /**
-   * Handler for uploading a file
-   * TODO: Implement file upload with Convex storage
-   */
-  const handleUploadFile = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log("Upload file to:", folder._id);
-    // TODO: Trigger file input dialog, then upload to Convex storage
-    // Call: api.files.create({ fileName, fileType, storageId, folderId: folder._id })
-  };
+
 
   // ============================================
   // RENDER
@@ -364,6 +344,16 @@ export function FolderTreeItem({
           >
             <FileIcon className="h-4 w-4 shrink-0" />
             <span className="flex-1 truncate">{file.fileName} </span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={
+            (e)=>{
+              e.stopPropagation()
+              setFileToDelete(file._id)
+              setOpenDeleteFileDialog(true)
+              setFilenameToDelete(file.fileName)
+            }
+            } >
+                <Trash className="h-3.5 w-3.5" />
+              </Button>
                </div>
             </div>
             ))
@@ -401,6 +391,16 @@ export function FolderTreeItem({
       open={openAiFlashcardDialog}
       onOpenChange={setOpenAiFlashcardDialog}
       folderId={folder._id}
+      />
+      <DeleteDialog 
+      open={openDeleteFileDialog}
+      onOpenChange={setOpenDeleteFileDialog}
+      title="Delete File"
+      description={`Are you sure you want to delete ${filenametoDelete} This action cannot be undone `}
+      itemName={filenametoDelete!}
+      onConfirm={()=>{
+        deleteFile({fileId:fileToDelete as Id<'files'>})
+      }}
       />
     </div>
   );

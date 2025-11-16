@@ -15,11 +15,6 @@ const data = {
         avatar:'https://github.com/shadcn.png',
     },
     navMain:[
-     {
-      title: "Search",
-      url: "#",
-      icon: Search,
-    },
     {
       title: "Ask AI",
       url: "/Ai",

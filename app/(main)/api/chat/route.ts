@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { blockNoteToMarkdown, markdownToBlockNote } from "@/lib/convertmarkdowntoblock";
+import { CreateFolderOutput, CreateNoteOutput, GenerateFlashcardOutput, GetFlashcardOutput, GetFolderItemsOutput, GetUserFlashcardsOutput, UpdateFolderOutput, UpdateNoteOutput } from "@/types/aitoolstypes";
 
 
 export const maxDuration = 30;
@@ -50,6 +51,8 @@ export async function POST(req: Request) {
   const webSearchContext = webSearch ? 'ENABLED' : 'DISABLED';
   console.log('webSearchContext',webSearchContext)
 
+  const userInfo = await convex.query(api.user.getCurrentUser)
+
   // --- (This is the new System Prompt) ---
   const system = `
 ## 1. CORE ROLE
@@ -60,6 +63,7 @@ You are an expert AI study assistant. Your primary goal is to help students lear
 - **Web Search**: ${webSearchContext}
 - ${folderContext}
 - ${noteContext}
+- ${userInfo}
 
 ## 3. MODE-SPECIFIC BEHAVIOR
 ${studyMode ? `
@@ -133,7 +137,7 @@ export function createTools(convex: ConvexHttpClient) {
         })).describe('Array of possible answers. For multiple choice: 4 options with 1 correct. For true/false: 2 options.'),
         isMultipleChoice: z.boolean().describe('True for multiple choice questions, false for true/false or short answer'),
       }),
-      execute: async ({ folderId, question, answers, isMultipleChoice }) => {
+      execute: async ({ folderId, question, answers, isMultipleChoice }):Promise<GenerateFlashcardOutput | { success: false, error: string }> => {
         try {
           const flashcard = await convex.mutation(api.flashcards.createFlashcard, {
             folderId: folderId as Id<'folders'>,
@@ -144,7 +148,7 @@ export function createTools(convex: ConvexHttpClient) {
           console.log('success in generateFlashcards');
           return { 
             success: true, 
-            flashcard,
+            flashcard:flashcard,
             message: `Created flashcard: "${question}"` 
           };
         } catch (error) {
@@ -158,11 +162,11 @@ export function createTools(convex: ConvexHttpClient) {
     }),
     
     getUserFlashcards: tool({
-      description: 'Retrieve all flashcards from a specific folder. Use this to quiz the user or understand what flashcards already exist.',
+      description: 'Retrieve all flashcards from a specific folder. Use this to  understand what flashcards already exist.',
       inputSchema: z.object({
         folderId: z.string().describe('The folder ID to fetch flashcards from'),
       }),
-      execute: async ({ folderId }) => {
+      execute: async ({ folderId }):Promise<GetUserFlashcardsOutput | { success: false, error: string }> => {
         try {
           const flashcards = await convex.query(api.flashcards.fetchFlashcards, {
             folderId: folderId as Id<'folders'>,
@@ -188,7 +192,7 @@ export function createTools(convex: ConvexHttpClient) {
       inputSchema: z.object({
         folderId: z.string().describe('The folder ID to fetch content from'),
       }),
-      execute: async ({ folderId }) => {
+      execute: async ({ folderId }):Promise<GetFolderItemsOutput | { success: false, error: string }> => {
         try {
           const [notes, files, flashcards] = await Promise.all([
             convex.query(api.notes.fetchNotesInFolder, {
@@ -226,7 +230,7 @@ export function createTools(convex: ConvexHttpClient) {
         title: z.string().describe('The title for the note (you generate this based on the topic)'),
         content: z.string().describe('The content for the note (you generate this based on the topic)in markdown format'),
       }),
-      execute: async ({ folderId, title ,content }) => {
+      execute: async ({ folderId, title ,content }):Promise<CreateNoteOutput | { success: false, error: string }> => {
         try {
           const blocks = markdownToBlockNote(content);
           const note = await convex.mutation(api.notes.createNote, {
@@ -237,8 +241,8 @@ export function createTools(convex: ConvexHttpClient) {
           console.log('created note', note);
           return { 
             success: true, 
-            note,
-            message: `Created note: "${title}". Now update it with content using updateNote.` 
+            note:note,
+            message: `Created note: "${title}".with content "${content}"` 
           };
         } catch (error) {
           console.log('note creation error', error);
@@ -256,7 +260,7 @@ export function createTools(convex: ConvexHttpClient) {
         noteId: z.string().describe('The note ID to update'),
         content: z.string().describe('The full content of the note, written in Markdown format. '),
       }),
-      execute: async ({ noteId, content }) => {
+      execute: async ({ noteId, content }):Promise<UpdateNoteOutput | { success: false, error: string }> => {
         try {
           const blocks = markdownToBlockNote(content);
           const note = await convex.mutation(api.notes.updateContent, {
@@ -267,7 +271,7 @@ export function createTools(convex: ConvexHttpClient) {
           console.log('updated note', note);
           return { 
             success: true, 
-            noteId: noteId,
+            note:note,
             message: `Note content updated successfully` 
           };
         } catch (error) {
@@ -306,7 +310,7 @@ export function createTools(convex: ConvexHttpClient) {
       inputSchema: z.object({
         flashcardId: z.string().describe('The flashcard ID to fetch'),
       }),
-      execute: async ({ flashcardId }) => {
+      execute: async ({ flashcardId }):Promise<GetFlashcardOutput | { success: false, error: string }> => {
         try {
           const flashcard = await convex.query(api.flashcards.getFlashcard, {
             flashcardId: flashcardId as Id<'flashcards'>,
@@ -318,7 +322,7 @@ export function createTools(convex: ConvexHttpClient) {
           
           return {
             success: true,
-            flashcard,
+            flashcard:flashcard,
             stats: {
               successRate: `${successRate}%`,
               totalReviews: flashcard.totalReviews,
@@ -383,6 +387,44 @@ export function createTools(convex: ConvexHttpClient) {
         }
       }
     }),
+    createFolder:tool({
+      description:"Create a new folder with a name and optional description.",
+      inputSchema:z.object({
+        name:z.string().describe('The name of the folder based on the topic'),
+        description:z.string().optional().describe('Optional description of the folder')
+      }),
+      execute:async({name,description}):Promise<CreateFolderOutput | { success: false, error: string }>=>{
+        try{
+         const folder = await convex.mutation(api.folders.createFolder,{name,description})
+         console.log('created folder',folder)
+         return {success:true,folder,message:`Created folder: "${name}"`}
+        }
+        catch(error){
+          console.log('folder creation error',error)
+          return {success:false,error: `Failed to create folder: ${error}`}
+        }
+      }
+    }),
+    updateFolder:tool({
+      description:"Update the name and description of an existing folder.",
+      inputSchema:z.object({
+        folderId:z.string().describe('The folder ID to update'),
+        name:z.string().optional().describe('The new name for the folder'),
+        description:z.string().optional().describe('The new description for the folder')
+      }),
+      execute:async({folderId,name,description}):Promise<UpdateFolderOutput | { success: false, error: string }>=>{
+        try{
+         const folder = await convex.mutation(api.folders.updateFolder,{folderId:folderId as Id<'folders'>,name,description})
+         console.log('updated folder',folder)
+         return {success:true,message:`Updated folder: "${name}"`}
+        }
+        catch(error){
+          console.log('folder update error',error)
+          return {success:false,error: `Failed to update folder: ${error}`}
+        }
+      }
+    }),
+    
 
   };
 }

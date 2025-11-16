@@ -93,10 +93,10 @@ export const getNoteId = query({
         noteId:v.id("notes"),
     },
     handler:async (ctx ,args)=>{
-        const user = await ctx.auth.getUserIdentity();
-        if(!user){
-            throw new Error("Not authenticated");
-        }
+        // const user = await ctx.auth.getUserIdentity();
+        // if(!user){
+        //     throw new Error("Not authenticated");
+        // }
         const note = await ctx.db.get(args.noteId);
         if(!note){
             throw new Error("Note not found.");

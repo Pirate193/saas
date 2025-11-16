@@ -2,13 +2,23 @@
 
 import { BlockNoteEditor, BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs, filterSuggestionItems, insertOrUpdateBlock, PartialBlock } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { DefaultReactSuggestionItem, getDefaultReactSlashMenuItems, SuggestionMenuController, useCreateBlockNote } from "@blocknote/react";
+import { DefaultReactSuggestionItem, getDefaultReactSlashMenuItems, SuggestionMenuController, SuggestionMenuProps, useCreateBlockNote } from "@blocknote/react";
 import { useTheme } from "next-themes";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 import { codeBlockOptions } from "@blocknote/code-block";
 import { Paintbrush } from "lucide-react";
 import createWhiteboard from "./customBlocks";
+import { Fragment } from "react";
+
+import {
+  AIMenuSuggestionItem,
+  getAIExtension,
+  aiDocumentFormats,
+  AIMenu,getDefaultAIMenuItems, createAIExtension
+} from "@blocknote/xl-ai";
+import { ScrollArea } from "../ui/scroll-area";
+
 
 interface BlocknoteEditorProps {
   initialContent?: string;
@@ -56,21 +66,47 @@ const BlocknoteEditor = ({
   const { resolvedTheme } = useTheme();
 
   // Parse initial content safely
-  const parseInitialContent = (): PartialBlock[] | undefined => {
-    if (!initialContent) return undefined;
+ const parseInitialContent = (): PartialBlock[] | undefined => {
+  if (!initialContent || initialContent.trim() === "" || initialContent === '""') {
+    return undefined;
+  }
+  
+  try {
+    const parsed = JSON.parse(initialContent);
     
-    try {
-      return JSON.parse(initialContent) as PartialBlock[];
-    } catch (error) {
-      console.error("Failed to parse initial content:", error);
+    // Validate that we got an array
+    if (!Array.isArray(parsed)) {
+      console.warn("Initial content is not an array, starting with empty editor");
       return undefined;
     }
-  };
+    
+    // Validate and clean each block
+    const validBlocks = parsed.filter((block: any) => {
+      if (!block || typeof block !== 'object') {
+        console.warn("Invalid block found:", block);
+        return false;
+      }
+      
+      // Ensure required properties exist
+      if (!block.type || !block.id) {
+        console.warn("Block missing required properties:", block);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    return validBlocks.length > 0 ? validBlocks : undefined;
+  } catch (error) {
+    console.error("Failed to parse initial content:", error);
+    return undefined;
+  }
+};
 
   // Create editor with proper typing
   const editor = useCreateBlockNote({
     initialContent: parseInitialContent(),
-    schema:customSchema
+    schema:customSchema,
   });
 
   // Handle content changes
@@ -98,9 +134,63 @@ const BlocknoteEditor = ({
           // Filter items based on user's search query
           filterSuggestionItems(getCustomSlashMenuItems(editor), query)
         }
+        suggestionMenuComponent={CustomSlashMenu}
       />
     </BlockNoteView>
   );
 };
 
 export default BlocknoteEditor;
+
+function CustomSlashMenu(
+  props: SuggestionMenuProps<DefaultReactSuggestionItem>,
+) {
+  let currentGroup: string | null = null;
+  return (
+   <div className="bg-popover text-popover-foreground rounded-lg shadow-md w-72 overflow-hidden border overflow-y-auto scrollbar-hidden">
+      {/* Scrollable area for long lists */}
+      <ScrollArea className="max-h-72 "> {/* You can adjust max-h */}
+        {/* We add p-1 here so the scrollbar doesn't overlap the content */}
+        <div className="p-1">
+          {props.items.length > 0 ? (
+            props.items.map((item, index) => {
+              const showHeader = item.group !== currentGroup;
+              currentGroup = item.group!;
+
+              return (
+                <Fragment key={index}>
+                  {/* Group header */}
+                  {showHeader && (
+                    <div className="text-xs font-semibold text-muted-foreground uppercase pt-2 pb-1 px-2">
+                      {item.group}
+                    </div>
+                  )}
+
+                  {/* Menu Item, using accent for selection */}
+                  <div
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm ${
+                      props.selectedIndex === index
+                        ? "bg-accent text-accent-foreground" // Selected style
+                        : "hover:bg-accent hover:text-accent-foreground" // Hover style
+                    }`}
+                    onClick={() => {
+                      props.onItemClick?.(item);
+                    }}
+                  >
+                    {/* Icon */}
+                    <div className="text-muted-foreground">{item.icon}</div>
+                    {/* Title */}
+                    <span className="font-medium">{item.title}</span>
+                  </div>
+                </Fragment>
+              );
+            })
+          ) : (
+            // No results state
+            <div className="p-2 text-sm text-muted-foreground">No results</div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}

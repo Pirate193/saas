@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
+ import { PDFParse } from 'pdf-parse';
+import { Id } from "./_generated/dataModel";
 
 
 export const generateUploadUrl = mutation({
@@ -21,49 +23,67 @@ export const uploadFile = mutation({
         if(!user){
             throw new Error("Not authenticated");
         }
-        const file = await ctx.db.insert("files",{
+        const fileId = await ctx.db.insert("files",{
             userId:user.subject,
             folderId:args.folderId,
             fileName:args.fileName,
             fileType:args.fileType,
             storageId:args.storageId
         })
-        const fileurl = await ctx.storage.getUrl(args.storageId)
-        // const text = extractTextFromPDF(fileurl as string);
         
-        return fileurl;
+        const fileurl = await ctx.storage.getUrl(args.storageId)
+        if(!fileurl){
+            throw new Error("File not found");
+        }
+        return {
+            fileId,
+            fileurl
+        };
     }
 })
 
-// export const upload = action({
-//     args:{
-//          folderId:v.optional(v.id("folders")),
-//          fileName:v.string(),
-//          fileType:v.string(),
-//          storageId:v.id("_storage")
-//     },
-//     handler:async (ctx ,args)=>{
-//         const user = await ctx.auth.getUserIdentity();
-//         if(!user){
-//             throw new Error("Not authenticated");
-//         }
-//         const uploadfile = await ctx.runMutation(api.files.uploadFile,{
-//             folderId:args.folderId,
-//             fileName:args.fileName,
-//             fileType:args.fileType,
-//             storageId:args.storageId
-//         })
-//         const fileurl = await ctx.storage.getUrl(args.storageId);
-//         const text =  extractTextFromPDF(fileurl as string);
-//         const rag = await ctx.runAction(api.rag.addFile,{
-//             folderId:args.folderId,
-//             fileId:uploadfile.id,
-//             text:text,
-//             fileName:args.fileName,
-//         })
+// export const uploadAndProcessFile = action({
+//   args: {
+//     folderId: v.optional(v.id("folders")),
+//     fileName: v.string(),
+//     fileType: v.string(),
+//     storageId: v.id("_storage"),
+//   },
+//   handler: async (ctx, args) => {
+//     const user = await ctx.auth.getUserIdentity();
+//     if (!user) {
+//       throw new Error("Not authenticated");
+//     }
+//     const fileId = await ctx.runMutation(api.files.uploadFile,{
+//         folderId:args.folderId,
+//         fileName:args.fileName,
+//         fileType:args.fileType,
+//         storageId:args.storageId
+//     })
+
+//     const fileurl = await ctx.storage.getUrl(args.storageId)
+
+//     if(!fileurl){
+//         throw new Error('File not found');
 //     }
 
-// })
+//     try{
+//        const pdfparse = new PDFParse({url:fileurl})
+//        const result = await pdfparse.getText()
+//        const text = result.text
+
+//        await ctx.runAction(api.rag.addFile,{
+//         folderId:args.folderId as Id<'folders'>,
+//         fileId:fileId,
+//         text:text,
+//         fileName:args.fileName,
+//        })
+       
+//     }catch(error){
+//        console.error("Error extracting text:", error);
+//     }
+// }
+// });
 
 export const fetchfiles = query({
     args:{
@@ -107,6 +127,21 @@ export const getFile = query({
             file:file,
             fileurl:fileurl
         };
+    }
+})
+
+export const fetchallfiles = query({
+    args:{
+
+    },
+    handler:async( ctx)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error ("Not authenticated")
+        }
+
+        const files = await ctx.db.query("files").withIndex("by_user",(q)=>q.eq("userId",user.subject)).collect()
+        return files;
     }
 })
 

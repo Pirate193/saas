@@ -139,7 +139,7 @@ export function ChatHistoryPopover() {
                   {otherChats.map((chat) => (
                     <div
                       key={chat._id}
-                      className="group flex items-center justify-between w-full pr-2"
+                      className="group flex items-center justify-between w-80 pr-2"
                     >
                       {/* Chat link */}
                       <Button
