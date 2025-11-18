@@ -10,7 +10,18 @@ export const generateUploadUrl = mutation({
     return await ctx.storage.generateUploadUrl();
   },
 });
-
+export const getUrl = mutation({
+    args:{
+        storageId:v.id("_storage")
+    },
+    handler:async (ctx ,args)=>{
+      const fileurl = await ctx.storage.getUrl(args.storageId)
+      if(!fileurl){
+        throw new Error("File not found");
+      }
+      return fileurl;
+    }
+})
 export const uploadFile = mutation({
     args:{
          folderId:v.optional(v.id("folders")),

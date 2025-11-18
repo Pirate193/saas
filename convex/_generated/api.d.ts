@@ -10,10 +10,12 @@
 
 import type * as ai from "../ai.js";
 import type * as chat from "../chat.js";
+import type * as clone from "../clone.js";
 import type * as files from "../files.js";
 import type * as flashcards from "../flashcards.js";
 import type * as folders from "../folders.js";
 import type * as notes from "../notes.js";
+import type * as public_ from "../public.js";
 import type * as rag from "../rag.js";
 import type * as user from "../user.js";
 
@@ -34,10 +36,12 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   chat: typeof chat;
+  clone: typeof clone;
   files: typeof files;
   flashcards: typeof flashcards;
   folders: typeof folders;
   notes: typeof notes;
+  public: typeof public_;
   rag: typeof rag;
   user: typeof user;
 }>;

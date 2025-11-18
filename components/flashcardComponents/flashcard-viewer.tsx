@@ -49,6 +49,9 @@ const FlashcardViewer = ({
 }: Props) => {
   const reviewCard = useMutation(api.flashcards.reviewFlashcard);
   const flashcard = useQuery(api.flashcards.getFlashcard, { flashcardId });
+  const progress = useQuery(api.flashcards.fetchFlashcardProgress, {
+    flashcardId,
+  });
 
   const [userAnswer, setUserAnswer] = useState("");
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -76,7 +79,7 @@ const FlashcardViewer = ({
     setAiReview(false);
   }, [flashcardId, setMessages]);
 
-  if (flashcard === undefined) {
+  if (flashcard === undefined || progress === undefined) {
     return (
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
@@ -93,9 +96,9 @@ const FlashcardViewer = ({
 
   const handleCheckAnswer = async () => {
     const token = await getToken({ template: "convex" });
-    
+
     // --- FIX: Set AiReview to true here ---
-    setAiReview(true); 
+    setAiReview(true);
     setShowResult(true);
     setShowQualityRating(true);
 
@@ -125,7 +128,10 @@ const FlashcardViewer = ({
       Flashcard Question: "${flashcard.question}"
       
       Correct Answer(s):
-      ${flashcard.answers.filter(a => a.isCorrect).map(a => `- ${a.text}`).join('\n')}
+      ${flashcard.answers
+        .filter((a) => a.isCorrect)
+        .map((a) => `- ${a.text}`)
+        .join("\n")}
       
       Student's Answer: "${answerText}"
       
@@ -164,7 +170,8 @@ const FlashcardViewer = ({
       );
 
       let reviewText = "";
-      if (daysUntil <= 0) { // --- FIX: Handle same-day reviews
+      if (daysUntil <= 0) {
+        // --- FIX: Handle same-day reviews
         reviewText = "Today";
       } else if (daysUntil === 1) {
         reviewText = "1 day";
@@ -217,8 +224,8 @@ const FlashcardViewer = ({
     ? selectedOption !== null
     : userAnswer.trim() !== "";
 
-   
-   const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+  const lastMessage =
+    messages.length > 0 ? messages[messages.length - 1] : null;
 
   // 2. ONLY get the text if the last message is from the ASSISTANT
   const aifeedback =
@@ -235,11 +242,11 @@ const FlashcardViewer = ({
         {/* ... (Your CardHeader logic is correct) ... */}
         <CardTitle className="text-xl flex items-center justify-between">
           <span>Question</span>
-          {flashcard && flashcard.totalReviews > 0 && (
+          {flashcard && progress && progress?.totalReviews > 0 && (
             <span className="text-sm font-normal text-muted-foreground">
               Success:{" "}
               {Math.round(
-                (flashcard.correctReviews / flashcard.totalReviews) * 100
+                (progress?.correctReviews / progress?.totalReviews) * 100
               )}
               %
             </span>
@@ -409,9 +416,9 @@ const FlashcardViewer = ({
                         Thinking...
                       </div>
                     ) : null}
-                    
+
                     {error && (
-                       <p className="text-red-500">Error: {error.message}</p>
+                      <p className="text-red-500">Error: {error.message}</p>
                     )}
                   </div>
                 </div>
@@ -423,78 +430,77 @@ const FlashcardViewer = ({
 
         {/* Quality Rating Buttons */}
         <AnimatePresence>
-          {showQualityRating &&
-            !isReviewing && (
-              // ... (Your Quality Rating logic is correct) ...
-               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-3"
-              >
-                <p className="text-sm font-medium text-center">
-                  How well did you know this?
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => handleQualityRating(isCorrect ? 2 : 0)}
-                    className="flex flex-col h-auto py-3 hover:bg-red-50 dark:hover:bg-red-950/20"
-                  >
-                    <span className="font-semibold">Again</span>
-                    <span className="text-xs text-muted-foreground">
-                      {getIntervalPreview(
-                        isCorrect ? 2 : 0,
-                        flashcard.easeFactor,
-                        flashcard.intervalDays,
-                        flashcard.repetitions
-                      )}
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleQualityRating(isCorrect ? 3 : 1)}
-                    className="flex flex-col h-auto py-3 hover:bg-yellow-50 dark:hover:bg-yellow-950/20"
-                  >
-                    <span className="font-semibold">
-                      {isCorrect ? "Good" : "Hard"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {getIntervalPreview(
-                        isCorrect ? 3 : 1,
-                        flashcard.easeFactor,
-                        flashcard.intervalDays,
-                        flashcard.repetitions
-                      )}
-                    </span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => handleQualityRating(isCorrect ? 5 : 2)}
-                    className="flex flex-col h-auto py-3 hover:bg-green-50 dark:hover:bg-green-950/20"
-                    disabled={!isCorrect}
-                  >
-                    <span className="font-semibold">Easy</span>
-                    <span className="text-xs text-muted-foreground">
-                      {getIntervalPreview(
-                        isCorrect ? 5 : 2,
-                        flashcard.easeFactor,
-                        flashcard.intervalDays,
-                        flashcard.repetitions
-                      )}
-                    </span>
-                  </Button>
-                </div>
-                <p className="text-xs text-center text-muted-foreground">
-                  Choose how difficult this card was for you
-                </p>
-              </motion.div>
-            )}
+          {showQualityRating && progress && !isReviewing && (
+            // ... (Your Quality Rating logic is correct) ...
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-3"
+            >
+              <p className="text-sm font-medium text-center">
+                How well did you know this?
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleQualityRating(isCorrect ? 2 : 0)}
+                  className="flex flex-col h-auto py-3 hover:bg-red-50 dark:hover:bg-red-950/20"
+                >
+                  <span className="font-semibold">Again</span>
+                  <span className="text-xs text-muted-foreground">
+                    {getIntervalPreview(
+                      isCorrect ? 2 : 0,
+                      progress.easeFactor,
+                      progress.intervalDays,
+                      progress.repetitions
+                    )}
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleQualityRating(isCorrect ? 3 : 1)}
+                  className="flex flex-col h-auto py-3 hover:bg-yellow-50 dark:hover:bg-yellow-950/20"
+                >
+                  <span className="font-semibold">
+                    {isCorrect ? "Good" : "Hard"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {getIntervalPreview(
+                      isCorrect ? 3 : 1,
+                      progress.easeFactor,
+                      progress.intervalDays,
+                      progress.repetitions
+                    )}
+                  </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleQualityRating(isCorrect ? 5 : 2)}
+                  className="flex flex-col h-auto py-3 hover:bg-green-50 dark:hover:bg-green-950/20"
+                  disabled={!isCorrect}
+                >
+                  <span className="font-semibold">Easy</span>
+                  <span className="text-xs text-muted-foreground">
+                    {getIntervalPreview(
+                      isCorrect ? 5 : 2,
+                      progress.easeFactor,
+                      progress.intervalDays,
+                      progress.repetitions
+                    )}
+                  </span>
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Choose how difficult this card was for you
+              </p>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Loading indicator while reviewing */}
         {isReviewing && (
           // ... (Your isReviewing logic is correct) ...
-           <div className="flex flex-col items-center justify-center py-6">
+          <div className="flex flex-col items-center justify-center py-6">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground mt-2">
               Saving review...
@@ -505,7 +511,7 @@ const FlashcardViewer = ({
 
       <CardFooter className="flex justify-between">
         {/* ... (Your CardFooter logic is correct) ... */}
-         <Button
+        <Button
           variant="outline"
           onClick={handlePrevious}
           disabled={!hasPrevious || isReviewing}

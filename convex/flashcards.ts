@@ -24,12 +24,6 @@ export const createFlashcard = mutation({
             answers:args.answers,
             isMultipleChoice:args.isMultipleChoice,
             updatedAt:Date.now(),
-            easeFactor:2.5,
-            intervalDays:0,
-            repetitions:0,
-            nextReviewDate: Date.now(),
-            totalReviews:0,
-            correctReviews:0,
         })
         return flashcardId
     }
@@ -126,10 +120,14 @@ export const reviewFlashcard = mutation({
         if(!flashcard || flashcard.userId !== user.subject){
             throw new Error("Flashcard not found or access denied.");
         }
+        const existingProgress = await ctx.db.query("flashcardProgress").withIndex("by_user_flashcard",(q)=> q.eq("userId",user.subject).eq("flashcardId",args.flashcardId)).first();
+        
         const quality = args.quality;
-        let easeFactor = flashcard.easeFactor;
-        let interval = flashcard.intervalDays;
-        let repetitions = flashcard.repetitions;
+        let easeFactor = existingProgress ? existingProgress.easeFactor :2.5;
+        let interval = existingProgress ? existingProgress.intervalDays: 0;
+        let repetitions = existingProgress ? existingProgress.repetitions : 0;
+        const totalReviews = existingProgress ? existingProgress.totalReviews : 0;
+        const correctReviews = existingProgress ? existingProgress.correctReviews : 0;
         let wasCorrect = true;
 
         if(quality < 3){
@@ -155,16 +153,30 @@ export const reviewFlashcard = mutation({
         nextReviewDate.setDate(nextReviewDate.getDate() + interval);
         nextReviewDate.setHours(0,0,0,0);
         
-        await ctx.db.patch(args.flashcardId,{
+       if(existingProgress){
+        await ctx.db.patch(existingProgress._id,{
             easeFactor:easeFactor,
             intervalDays:interval,
             repetitions:repetitions,
             nextReviewDate:nextReviewDate.getTime(),
             lastReviewedAt:now,
-            totalReviews:flashcard.totalReviews + 1,
-            correctReviews:flashcard.correctReviews + (wasCorrect ? 1 : 0),
-            updatedAt:now,
+            totalReviews: totalReviews + 1,
+            correctReviews:correctReviews + (wasCorrect ? 1 : 0),
         })
+       }else {
+        await ctx.db.insert('flashcardProgress',{
+            userId:user.subject,
+            flashcardId:args.flashcardId,
+            folderId:flashcard.folderId,
+            easeFactor:easeFactor,
+            intervalDays:interval,
+            repetitions:repetitions,
+            nextReviewDate:nextReviewDate.getTime(),
+            lastReviewedAt:now,
+            totalReviews: totalReviews + 1,
+            correctReviews:correctReviews + (wasCorrect ? 1 : 0),
+        })
+       }
         await ctx.db.insert("flashcardReviews",{
             userId:user.subject,
             flashcardId:args.flashcardId,
@@ -194,10 +206,41 @@ export const fetchflashcarddue = query({
     handler: async(ctx ,args)=>{
      const user = await ctx.auth.getUserIdentity();
      const limit = args.limit || 50;
+     if(!user){
+        throw new Error("Not authenticated");
+     }
 
-     const flashcards = await ctx.db.query("flashcards").withIndex("by_next_review",(q)=>q.lte("nextReviewDate",Date.now())).filter((q)=>q.eq(q.field("folderId"),args.folderId)).take(limit);
+     const cards = await ctx.db.query('flashcards').withIndex('by_folder',(q)=>q.eq("folderId",args.folderId)).collect();
+
+     const progressList = await ctx.db.query('flashcardProgress').withIndex('by_user_and_folder',(q)=>q.eq("userId",user?.subject).eq("folderId",args.folderId)).collect();
      
-     return flashcards;
+    const progressMap = new Map()
+    progressList.forEach((p)=>progressMap.set(p.flashcardId,p));
+    const now = Date.now();
+    const dueCards = [];
+    for(const card of cards){
+        const progress = progressMap.get(card._id);
+
+        if(!progress){
+            dueCards.push({
+                ...card,
+                status:"new",
+                reps:0,
+                interval:0,
+                ease:2.5,
+            })
+        }else if (progress.nextReviewDate <= now){
+          dueCards.push({
+            ...card,
+            status:"due",
+            reps:progress.repetitions,
+            interval:progress.intervalDays,
+            ease:progress.easeFactor,
+
+          })
+        }
+    }
+    return dueCards.slice(0,limit);
 
     }
 })
@@ -212,7 +255,8 @@ export const fetchStudyStats = query({
             throw new Error("Not authenticated");
         }
         
-        const flashcards = await ctx.db.query("flashcards").withIndex("by_folder",(q)=>q.eq("folderId",args.folderId)).collect();
+        const flashcards = await ctx.db.query('flashcardProgress').withIndex("by_user_and_folder",(q)=>q.eq("userId",user.subject).eq("folderId",args.folderId)).collect()
+
         
         
         const now = new Date();
@@ -239,5 +283,19 @@ export const fetchStudyStats = query({
             totalReviews,
             successRate,
         }
+    }
+})
+
+export const fetchFlashcardProgress = query({
+    args:{
+        flashcardId:v.id("flashcards"),
+    },
+    handler: async (ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
+        const progress = await ctx.db.query('flashcardProgress').withIndex("by_user_flashcard",(q)=>q.eq("userId",user.subject).eq("flashcardId",args.flashcardId)).first();
+        return progress;
     }
 })

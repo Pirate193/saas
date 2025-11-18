@@ -9,9 +9,35 @@ export default defineSchema({
     name:v.string(),
     description:v.optional(v.string()),
     parentId:v.optional(v.string()),
+    isPublic:v.optional(v.boolean()),
+    tags:v.optional(v.array(v.string())),
+    cloneCount:v.optional(v.number()),
+    viewCount:v.optional(v.number()),
+    templateId:v.optional(v.id("folders")),
   })
   .index("by_user",["userId"])
-  .index("by_parent",["parentId"]),
+  .index("by_parent",["parentId"])
+  .index("by_public",['isPublic'])
+  .searchIndex("search_folder",{
+    searchField:'name',
+    filterFields:['isPublic']
+  }),
+
+  savedFolders:defineTable({
+    userId:v.string(),
+    folderId:v.id('folders')
+  })
+  .index("by_user",["userId"])
+  .index("by_folder",["folderId"]),
+
+  folderShares:defineTable({
+    folderId:v.id('folders'),
+    ownerId:v.string(),
+    sharedWithEmail:v.string(),
+    role:v.union(v.literal("editor"),v.literal("viewer"))
+  })
+  .index("by_folder",["folderId"])
+  .index('by_email',['sharedWithEmail']),
 
   notes:defineTable({
     userId:v.string(),
@@ -19,6 +45,7 @@ export default defineSchema({
     title:v.string(),
     content:v.optional(v.string()),
     updatedAt:v.number(),
+    templateId:v.optional(v.id('notes')),
   })
   .index("by_user",["userId"])
   .index("by_user_and_folder",["userId","folderId"])
@@ -29,7 +56,8 @@ export default defineSchema({
     folderId:v.optional(v.id("folders")),
     fileName:v.string(),
     fileType:v.string(),
-    storageId:v.id("_storage")
+    storageId:v.id("_storage"),
+    templateId:v.optional(v.id('files')),
   })
    .index("by_user",["userId"])
    .index("by_user_and_folder",["userId","folderId"])
@@ -46,6 +74,14 @@ export default defineSchema({
     })),
     isMultipleChoice:v.boolean(),
     updatedAt:v.number(),
+    templateId:v.optional(v.id('flashcards')),
+   }) 
+   .index("by_folder",["folderId"]),
+
+   flashcardProgress:defineTable({
+    userId:v.string(),
+    folderId:v.id("folders"),
+    flashcardId:v.id("flashcards"),
     easeFactor:v.number(), //determins interval growths
     intervalDays:v.number(),//days untill next review
     repetitions:v.number(), // consecutive correct answers
@@ -54,9 +90,8 @@ export default defineSchema({
     totalReviews:v.number(), // total reviews
     correctReviews:v.number(),
    })
-   .index("by_user",["userId"])
-   .index("by_folder",["folderId"])
-   .index("by_next_review",["nextReviewDate","userId"]),
+   .index("by_user_and_folder",["userId","folderId"])
+   .index("by_user_flashcard",["userId","flashcardId"]),
    //flashcard reviews
    flashcardReviews:defineTable({
     userId:v.string(),

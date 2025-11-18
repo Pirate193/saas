@@ -7,7 +7,7 @@ import { useTheme } from "next-themes";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 import { codeBlockOptions } from "@blocknote/code-block";
-import { Paintbrush } from "lucide-react";
+import { Paintbrush, Video, Youtube } from "lucide-react";
 import createWhiteboard from "./customBlocks";
 import { Fragment } from "react";
 
@@ -18,6 +18,9 @@ import {
   AIMenu,getDefaultAIMenuItems, createAIExtension
 } from "@blocknote/xl-ai";
 import { ScrollArea } from "../ui/scroll-area";
+import { createYoutubeVideo } from "./youtubeBlocks";
+import { useConvex, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 
 interface BlocknoteEditorProps {
@@ -33,7 +36,7 @@ const customSchema = BlockNoteSchema.create({
     codeBlock: createCodeBlockSpec(codeBlockOptions),
     // Add our custom blocks
     whiteboard: createWhiteboard(),
-    // graph: createGraph(),
+    youtubeVideo: createYoutubeVideo(),
   },
 });
 const insertWhiteboardItem = (
@@ -51,11 +54,27 @@ const insertWhiteboardItem = (
   icon: <Paintbrush size={18} />,
   subtext: "Add an interactive whiteboard for drawings and diagrams",
 });
+// Define the slash menu item for the YouTube block
+const insertYoutubeVideoItem = (
+  editor: BlockNoteEditor<typeof customSchema.blockSchema>
+): DefaultReactSuggestionItem => ({
+  title: "YouTube Video",
+  onItemClick: () => {
+    insertOrUpdateBlock(editor, {
+      type: "youtubeVideo",
+    });
+  },
+  aliases: ["youtube", "video", "embed", "yt"],
+  group: "other",
+  icon: <Video size={18} />,
+  subtext: "Embed a YouTube video",
+});
 const getCustomSlashMenuItems = (
   editor: BlockNoteEditor<typeof customSchema.blockSchema>
 ): DefaultReactSuggestionItem[] => [
   ...getDefaultReactSlashMenuItems(editor),
   insertWhiteboardItem(editor),
+  insertYoutubeVideoItem(editor),
   // insertGraphItem(editor),
 ];
 const BlocknoteEditor = ({
@@ -65,6 +84,43 @@ const BlocknoteEditor = ({
 }: BlocknoteEditorProps) => {
   const { resolvedTheme } = useTheme();
 
+  const convex = useConvex();
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getUrl = useMutation(api.files.getUrl);
+
+  /**
+   * This function handles file uploads for BlockNote.
+   * It's used by the default 'Image' and 'File' (video/etc) blocks.
+   */
+  const handleUpload = async (file: File): Promise<string> => {
+    // 7. REMOVED THE IMAGE CHECK
+    // This logic is generic and works for ANY file type.
+    try {
+      // 1. Get the Convex upload URL
+      const postUrl = await generateUploadUrl();
+
+      // 2. Upload the file to Convex
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      const { storageId } = await result.json();
+
+      // 3. Get the URL for the uploaded file
+      // We can use the client-side `storage.getUrl`
+      const url = await getUrl({storageId});
+      if (!url) {
+        throw new Error("Could not get file URL.");
+      }
+      return url;
+
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+      throw new Error("Upload failed. Please try again.");
+    }
+  };
   // Parse initial content safely
  const parseInitialContent = (): PartialBlock[] | undefined => {
   if (!initialContent || initialContent.trim() === "" || initialContent === '""') {
@@ -107,6 +163,7 @@ const BlocknoteEditor = ({
   const editor = useCreateBlockNote({
     initialContent: parseInitialContent(),
     schema:customSchema,
+    uploadFile:handleUpload,
   });
 
   // Handle content changes
