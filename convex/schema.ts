@@ -14,6 +14,7 @@ export default defineSchema({
     tags:v.optional(v.array(v.string())),
     cloneCount:v.optional(v.number()),
     viewCount:v.optional(v.number()),
+    savedCount:v.optional(v.number()),
     templateId:v.optional(v.id("folders")),
   })
   .index("by_user",["userId"])

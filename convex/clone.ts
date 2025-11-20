@@ -48,8 +48,10 @@ async function recursiveClone(
     parentId: targetParentId,
     isPublic: false, // Cloned folders are private by default
     tags: sourceFolder.tags,
+    bannerId: sourceFolder.bannerId,
     templateId: sourceFolderId,
     viewCount: 0,
+    savedCount:0,
     cloneCount: 0,
   });
 

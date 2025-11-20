@@ -24,6 +24,8 @@ import {
   Globe,
   ImageIcon,
   Loader2,
+  Notebook,
+  File,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -49,6 +51,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import Image from "next/image";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   folderId: Id<"folders">;
@@ -80,6 +83,7 @@ const Dashboard = ({ folderId }: Props) => {
   const notes = useQuery(api.notes.fetchNotesInFolder, { folderId: folderId });
   const files = useQuery(api.files.fetchfiles, { folderId: folderId });
   const folder = useQuery(api.folders.getFolderById, { folderId: folderId });
+  const allfolders = useQuery(api.folders.fetchFolders);
   const flashcards = useQuery(api.flashcards.fetchFlashcards, {
     folderId: folderId,
   });
@@ -101,9 +105,12 @@ const Dashboard = ({ folderId }: Props) => {
     folder?.parentId ? { folderId: folder.parentId as Id<"folders"> } : "skip"
   );
 
-  if (!folder || !stats || !notes || !files) {
+  if (!folder || !stats || !notes || !files || !allfolders) {
     return <DashboardSkeleton />;
   }
+  const subfoldersCount = allfolders.filter(
+    (f) => f.parentId === folder._id
+  ).length;
 
   const masteryPercentage = (stats.masteredCards / stats.totalCards) * 100 || 0;
 
@@ -225,6 +232,37 @@ const Dashboard = ({ folderId }: Props) => {
           </div>
         </div>
 
+        <div className="space-y-2 absolute bottom-4 left-4 ">
+          <h1 className="text-4xl font-bold tracking-tight">{folder.name}</h1>
+          {folder.description && (
+            <p className="text-muted-foreground text-lg">
+              {folder.description}
+            </p>
+          )}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">
+              <Folder className="h-4 w-4 " />
+              {subfoldersCount}
+              <p className="text-xs text-muted-foreground">folders</p>
+            </Badge>
+            <Badge variant="outline">
+              <Notebook className="h-4 w-4" />
+              {notes.length}
+              <p className="text-xs text-muted-foreground">notes</p>
+            </Badge>
+            <Badge variant="outline">
+              <CreditCard className="h-4 w-4" />
+              {flashcards?.length || 0}
+              <p className="text-xs text-muted-foreground">cards</p>
+            </Badge>
+            <Badge variant="outline">
+              <File className="h-4 w-4" />
+              {files.length}
+              <p className="text-xs text-muted-foreground">uploaded</p>
+            </Badge>
+          </div>
+        </div>
+
         {/* Change Cover Button - Appears on Hover */}
         <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <Button
@@ -246,51 +284,6 @@ const Dashboard = ({ folderId }: Props) => {
 
       {/* --- Main Content Area --- */}
       <div className="flex-1 space-y-6 p-6 -mt-4 relative z-0">
-        {/* Title Section */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">{folder.name}</h1>
-          {folder.description && (
-            <p className="text-muted-foreground text-lg">
-              {folder.description}
-            </p>
-          )}
-        </div>
-
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{notes.length}</div>
-              <p className="text-xs text-muted-foreground">documents</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Flashcards</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {flashcards?.length || 0}
-              </div>
-              <p className="text-xs text-muted-foreground">cards</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Files</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{files.length}</div>
-              <p className="text-xs text-muted-foreground">uploaded</p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Flashcard Stats - Only show if there are flashcards */}
         {flashcards && flashcards.length > 0 && (
           <div className="space-y-6">

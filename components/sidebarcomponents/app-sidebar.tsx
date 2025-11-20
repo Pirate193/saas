@@ -9,6 +9,7 @@ import {
 import { NavMain } from "./Nav-main";
 import { NavUser } from "./nav-user";
 import Navfolders from "./nav-folders";
+import NavSaved from "./nav-saved";
 import Navheader from "./nav-header";
 import { usePathname } from "next/navigation";
 
@@ -59,6 +60,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Navfolders />
+        <NavSaved />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

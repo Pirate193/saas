@@ -6,11 +6,12 @@ import { useMutation, useQuery } from "convex/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { ArrowLeft, Copy, Globe } from "lucide-react";
+import { ArrowLeft, Bookmark, Copy, Eye, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { SaveButton } from "../saved/SaveButton";
 
 interface PublicHeaderProps {
   folderId: Id<"folders">;
@@ -69,11 +70,10 @@ const PublicHeader = ({ folderId }: PublicHeaderProps) => {
             size="lg"
             className="text-white hover:bg-white/20 hover:text-white transition-colors"
           />
-          {folder.parentId && (
-            <Button onClick={handleBack}>
-              <ArrowLeft />
-            </Button>
-          )}
+
+          <Button onClick={handleBack}>
+            <ArrowLeft />
+          </Button>
         </div>
 
         {/* Right: Hardcoded Public Badge */}
@@ -87,6 +87,14 @@ const PublicHeader = ({ folderId }: PublicHeaderProps) => {
             </TooltipTrigger>
             <TooltipContent>
               <p>Clone folder</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SaveButton folderId={folderId} variant="ghost" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>save folder</p>
             </TooltipContent>
           </Tooltip>
           <Badge
@@ -109,6 +117,16 @@ const PublicHeader = ({ folderId }: PublicHeaderProps) => {
             {folder.description}
           </p>
         )}
+        <Badge variant="outline" className="m-2">
+          <Copy className="h-3.5 w-3.5" />
+          Cloned
+          <span className="ml-2">{folder.cloneCount}</span>
+        </Badge>
+        <Badge variant="outline" className="m-2">
+          <Bookmark className="h-3.5 w-3.5" />
+          Saved
+          <span className="ml-2">{folder.savedCount}</span>
+        </Badge>
       </div>
     </div>
   );

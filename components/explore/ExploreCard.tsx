@@ -11,10 +11,12 @@ import {
   File as FileIcon,
   Eye,
   Copy,
+  Bookmark,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Skeleton } from "../ui/skeleton";
+import { SaveButton } from "../saved/SaveButton";
 
 interface ExploreCardProps {
   folder: Doc<"folders">;
@@ -104,6 +106,7 @@ export const ExploreCard = ({ folder }: ExploreCardProps) => {
               {folder.name}
             </CardTitle>
           </div>
+          <SaveButton folderId={folder._id} variant="ghost" />
         </div>
       </CardHeader>
 
@@ -122,6 +125,11 @@ export const ExploreCard = ({ folder }: ExploreCardProps) => {
             icon={Copy}
             label="clones"
             count={folder.cloneCount ?? 0}
+          />
+          <ItemCount
+            icon={Bookmark}
+            label="saved"
+            count={folder.savedCount ?? 0}
           />
         </div>
 

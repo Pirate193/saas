@@ -19,6 +19,9 @@ export const createFolder = mutation({
             description:args.description,
             parentId:args.parentId,
             isPublic:false,
+            viewCount:0,
+            cloneCount:0,
+            savedCount:0
         })
         return folderId;
     }

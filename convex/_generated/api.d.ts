@@ -17,6 +17,7 @@ import type * as folders from "../folders.js";
 import type * as notes from "../notes.js";
 import type * as public_ from "../public.js";
 import type * as rag from "../rag.js";
+import type * as saving from "../saving.js";
 import type * as user from "../user.js";
 
 import type {
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   notes: typeof notes;
   public: typeof public_;
   rag: typeof rag;
+  saving: typeof saving;
   user: typeof user;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
