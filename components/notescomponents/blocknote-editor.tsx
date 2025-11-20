@@ -1,13 +1,28 @@
 "use client";
 
-import { BlockNoteEditor, BlockNoteSchema, createCodeBlockSpec, defaultBlockSpecs, filterSuggestionItems, insertOrUpdateBlock, PartialBlock } from "@blocknote/core";
+import {
+  BlockNoteEditor,
+  BlockNoteSchema,
+  createCodeBlockSpec,
+  defaultBlockSpecs,
+  defaultInlineContentSpecs,
+  filterSuggestionItems,
+  insertOrUpdateBlock,
+  PartialBlock,
+} from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { DefaultReactSuggestionItem, getDefaultReactSlashMenuItems, SuggestionMenuController, SuggestionMenuProps, useCreateBlockNote } from "@blocknote/react";
+import {
+  DefaultReactSuggestionItem,
+  getDefaultReactSlashMenuItems,
+  SuggestionMenuController,
+  SuggestionMenuProps,
+  useCreateBlockNote,
+} from "@blocknote/react";
 import { useTheme } from "next-themes";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 import { codeBlockOptions } from "@blocknote/code-block";
-import { Paintbrush, Video, Youtube } from "lucide-react";
+import { BrainCircuit, Paintbrush, Video, Youtube } from "lucide-react";
 import createWhiteboard from "./customBlocks";
 import { Fragment } from "react";
 
@@ -15,13 +30,16 @@ import {
   AIMenuSuggestionItem,
   getAIExtension,
   aiDocumentFormats,
-  AIMenu,getDefaultAIMenuItems, createAIExtension
+  AIMenu,
+  getDefaultAIMenuItems,
+  createAIExtension,
 } from "@blocknote/xl-ai";
 import { ScrollArea } from "../ui/scroll-area";
 import { createYoutubeVideo } from "./youtubeBlocks";
 import { useConvex, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-
+import { QuizBlock } from "./quizBlock";
+import { MathInline } from "./Mathblock";
 
 interface BlocknoteEditorProps {
   initialContent?: string;
@@ -37,6 +55,11 @@ const customSchema = BlockNoteSchema.create({
     // Add our custom blocks
     whiteboard: createWhiteboard(),
     youtubeVideo: createYoutubeVideo(),
+    quiz: QuizBlock(),
+  },
+  inlineContentSpecs: {
+    ...defaultInlineContentSpecs,
+    math: MathInline,
   },
 });
 const insertWhiteboardItem = (
@@ -69,12 +92,27 @@ const insertYoutubeVideoItem = (
   icon: <Video size={18} />,
   subtext: "Embed a YouTube video",
 });
+const insertQuizItem = (
+  editor: BlockNoteEditor<typeof customSchema.blockSchema>
+): DefaultReactSuggestionItem => ({
+  title: "Generate Quiz",
+  onItemClick: () => {
+    insertOrUpdateBlock(editor, {
+      type: "quiz",
+    });
+  },
+  aliases: ["quiz", "flashcard", "test", "ai"],
+  group: "AI Tools",
+  icon: <BrainCircuit size={18} />,
+  subtext: "Generate an interactive practice problem",
+});
 const getCustomSlashMenuItems = (
   editor: BlockNoteEditor<typeof customSchema.blockSchema>
 ): DefaultReactSuggestionItem[] => [
   ...getDefaultReactSlashMenuItems(editor),
   insertWhiteboardItem(editor),
   insertYoutubeVideoItem(editor),
+  insertQuizItem(editor),
   // insertGraphItem(editor),
 ];
 const BlocknoteEditor = ({
@@ -110,64 +148,170 @@ const BlocknoteEditor = ({
 
       // 3. Get the URL for the uploaded file
       // We can use the client-side `storage.getUrl`
-      const url = await getUrl({storageId});
+      const url = await getUrl({ storageId });
       if (!url) {
         throw new Error("Could not get file URL.");
       }
       return url;
-
     } catch (error) {
       console.error("Failed to upload file:", error);
       throw new Error("Upload failed. Please try again.");
     }
   };
   // Parse initial content safely
- const parseInitialContent = (): PartialBlock[] | undefined => {
-  if (!initialContent || initialContent.trim() === "" || initialContent === '""') {
-    return undefined;
-  }
-  
-  try {
-    const parsed = JSON.parse(initialContent);
-    
-    // Validate that we got an array
-    if (!Array.isArray(parsed)) {
-      console.warn("Initial content is not an array, starting with empty editor");
+  const parseInitialContent = (): PartialBlock[] | undefined => {
+    if (
+      !initialContent ||
+      initialContent.trim() === "" ||
+      initialContent === '""'
+    ) {
       return undefined;
     }
-    
-    // Validate and clean each block
-    const validBlocks = parsed.filter((block: any) => {
-      if (!block || typeof block !== 'object') {
-        console.warn("Invalid block found:", block);
-        return false;
+
+    try {
+      const parsed = JSON.parse(initialContent);
+
+      // Validate that we got an array
+      if (!Array.isArray(parsed)) {
+        console.warn(
+          "Initial content is not an array, starting with empty editor"
+        );
+        return undefined;
       }
-      
-      // Ensure required properties exist
-      if (!block.type || !block.id) {
-        console.warn("Block missing required properties:", block);
-        return false;
-      }
-      
-      return true;
-    });
-    
-    return validBlocks.length > 0 ? validBlocks : undefined;
-  } catch (error) {
-    console.error("Failed to parse initial content:", error);
-    return undefined;
-  }
-};
+
+      // Validate and clean each block
+      const validBlocks = parsed.filter((block: any) => {
+        if (!block || typeof block !== "object") {
+          console.warn("Invalid block found:", block);
+          return false;
+        }
+
+        // Ensure required properties exist
+        if (!block.type || !block.id) {
+          console.warn("Block missing required properties:", block);
+          return false;
+        }
+
+        return true;
+      });
+
+      return validBlocks.length > 0 ? validBlocks : undefined;
+    } catch (error) {
+      console.error("Failed to parse initial content:", error);
+      return undefined;
+    }
+  };
 
   // Create editor with proper typing
   const editor = useCreateBlockNote({
     initialContent: parseInitialContent(),
-    schema:customSchema,
-    uploadFile:handleUpload,
+    schema: customSchema,
+    uploadFile: handleUpload,
   });
+
+  const checkForMath = (
+    editor: BlockNoteEditor<
+      typeof customSchema.blockSchema,
+      typeof customSchema.inlineContentSchema
+    >
+  ) => {
+    try {
+      // Get the text cursor position
+      const textCursorPosition = editor.getTextCursorPosition();
+      if (!textCursorPosition) {
+        console.log("No text cursor position");
+        return;
+      }
+
+      const block = textCursorPosition.block;
+
+      // Safety check: ensure block has content array
+      if (
+        !block.content ||
+        !Array.isArray(block.content) ||
+        block.content.length === 0
+      ) {
+        console.log("No content in block");
+        return;
+      }
+
+      // Convert the entire block content to a string to check for pattern
+      let fullText = "";
+      let contentNodes = [...block.content];
+
+      // Build the full text from all text nodes
+      for (const node of contentNodes) {
+        if (node.type === "text") {
+          fullText += node.text;
+        }
+      }
+
+      console.log("Full text:", fullText);
+
+      // Check if there's a complete $...$ pattern
+      const match = fullText.match(/\$([^$]+)\$$/);
+
+      if (match) {
+        console.log("Math pattern found:", match[0]);
+        const [fullMatch, latexContent] = match;
+        const textBefore = fullText.slice(0, -fullMatch.length);
+
+        console.log("Text before:", textBefore);
+        console.log("LaTeX content:", latexContent);
+
+        // Build new content array
+        const newContent: any[] = [];
+
+        // Add text before the math (if any)
+        if (textBefore) {
+          newContent.push({
+            type: "text",
+            text: textBefore,
+            styles: {},
+          });
+        }
+
+        // Add the Math Inline Node
+        newContent.push({
+          type: "math",
+          props: {
+            latex: latexContent.trim(),
+          },
+        });
+
+        // Add a trailing space
+        newContent.push({
+          type: "text",
+          text: " ",
+          styles: {},
+        });
+
+        console.log("Updating block with new content:", newContent);
+
+        // Update the block
+        editor.updateBlock(block, {
+          content: newContent,
+        });
+
+        // Move cursor after a brief delay
+        setTimeout(() => {
+          try {
+            editor.setTextCursorPosition(block, "end");
+          } catch (e) {
+            console.error("Error setting cursor:", e);
+          }
+        }, 10);
+      } else {
+        console.log("No math pattern match");
+      }
+    } catch (error) {
+      console.error("Error in checkForMath:", error);
+    }
+  };
 
   // Handle content changes
   const handleChange = () => {
+    checkForMath(editor);
     try {
       const blocks = editor.document;
       const content = JSON.stringify(blocks, null, 2);
@@ -200,13 +344,15 @@ const BlocknoteEditor = ({
 export default BlocknoteEditor;
 
 function CustomSlashMenu(
-  props: SuggestionMenuProps<DefaultReactSuggestionItem>,
+  props: SuggestionMenuProps<DefaultReactSuggestionItem>
 ) {
   let currentGroup: string | null = null;
   return (
-   <div className="bg-popover text-popover-foreground rounded-lg shadow-md w-72 overflow-hidden border overflow-y-auto scrollbar-hidden">
+    <div className="bg-popover text-popover-foreground rounded-lg shadow-md w-72 overflow-hidden border overflow-y-auto scrollbar-hidden">
       {/* Scrollable area for long lists */}
-      <ScrollArea className="max-h-72 "> {/* You can adjust max-h */}
+      <ScrollArea className="max-h-72 ">
+        {" "}
+        {/* You can adjust max-h */}
         {/* We add p-1 here so the scrollbar doesn't overlap the content */}
         <div className="p-1">
           {props.items.length > 0 ? (

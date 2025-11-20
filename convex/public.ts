@@ -126,3 +126,14 @@ export const searchPublicFolders = query({
         return folders;
     }
 })
+
+export const getPublicFolderChildren = query({
+    args:{
+        parentId:v.id('folders')
+    },
+    handler:async (ctx ,args)=>{
+        const children = await ctx.db.query('folders').withIndex('by_parent',(q)=>q.eq('parentId',args.parentId)).collect();
+
+        return children.filter((child)=>child.isPublic)
+    }
+})

@@ -51,12 +51,6 @@ export const getUserFlashcardsOutputSchema = successSchema.extend({
 
 export const getFlashcardOutputSchema = successSchema.extend({
   flashcard: flashcardSchema,
-  stats: z.object({
-    successRate: z.string(),
-    totalReviews: z.number(),
-    correctReviews: z.number(),
-    isStruggling: z.boolean(),
-  })
 });
 
 export const createFolderOutputSchema = successSchema.extend({

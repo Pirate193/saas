@@ -315,20 +315,11 @@ export function createTools(convex: ConvexHttpClient) {
           const flashcard = await convex.query(api.flashcards.getFlashcard, {
             flashcardId: flashcardId as Id<'flashcards'>,
           });
-          
-          const successRate = flashcard.totalReviews > 0
-            ? Math.round((flashcard.correctReviews / flashcard.totalReviews) * 100)
-            : 0;
+    
           
           return {
             success: true,
             flashcard:flashcard,
-            stats: {
-              successRate: `${successRate}%`,
-              totalReviews: flashcard.totalReviews,
-              correctReviews: flashcard.correctReviews,
-              isStruggling: successRate < 50 && flashcard.totalReviews >= 3,
-            }
           };
         } catch (error) {
           return {

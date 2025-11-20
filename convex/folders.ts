@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
 
 
 export const createFolder = mutation({
@@ -17,7 +17,8 @@ export const createFolder = mutation({
             userId:user.subject,
             name:args.name,
             description:args.description,
-            parentId:args.parentId
+            parentId:args.parentId,
+            isPublic:false,
         })
         return folderId;
     }
@@ -90,3 +91,53 @@ export const getFolderById = query({
         return folder;
     }
 })
+
+export const addbanner = mutation({
+    args:{
+        storageId:v.id("_storage"),
+        folderId:v.id('folders')
+    },
+    handler:async (ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
+        const folder = await ctx.db.get(args.folderId);
+        if(!folder || folder.userId !== user.subject){
+            throw new Error("Folder not found or access denied.");
+        }
+        await ctx.db.patch(args.folderId,{
+            bannerId:args.storageId
+        })
+    }
+})
+
+//getting any url 
+export const getUrl = query({
+    args:{
+        storageId:v.id("_storage")
+    },
+    handler:async (ctx ,args)=>{
+        const url = await ctx.storage.getUrl(args.storageId)
+        return url;
+    }
+})
+
+export const removebanner = mutation({
+  args: {
+    folderId: v.id("folders"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("Not authenticated");
+
+    const folder = await ctx.db.get(args.folderId);
+    if (!folder || folder.userId !== user.subject) {
+      throw new Error("Not authorized");
+    }
+
+    await ctx.db.patch(args.folderId, {
+      bannerId: undefined,
+    });
+  },
+});

@@ -17,25 +17,25 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default function PublicFolderPage() {
   const params = useParams();
-  const publicId = params.publicId as Id<"folders">;
+  const folderId = params.folderId as Id<"folders">;
 
   // Fetch the current folder
   const folder = useQuery(api.public.getPublicFolderById, {
-    folderId: publicId,
+    folderId: folderId,
   });
 
   // Fetch contents
   const subfolders = useQuery(api.public.getPublicFolderChildren, {
-    parentId: publicId,
+    parentId: folderId,
   });
   const notes = useQuery(api.public.getPublicFolderNotes, {
-    folderId: publicId,
+    folderId: folderId,
   });
   const files = useQuery(api.public.getPublicFolderFiles, {
-    folderId: publicId,
+    folderId: folderId,
   });
   const flashcards = useQuery(api.public.getPublicFolderFlashcards, {
-    folderId: publicId,
+    folderId: folderId,
   });
 
   // Loading State

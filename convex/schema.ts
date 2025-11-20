@@ -8,6 +8,7 @@ export default defineSchema({
     userId: v.string(),
     name:v.string(),
     description:v.optional(v.string()),
+    bannerId:v.optional(v.id("_storage")),
     parentId:v.optional(v.string()),
     isPublic:v.optional(v.boolean()),
     tags:v.optional(v.array(v.string())),

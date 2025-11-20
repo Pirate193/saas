@@ -11,6 +11,14 @@ const nextConfig: NextConfig = {
         ignoreBuildErrors: true,
       },
   reactStrictMode: false,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "silent-goose-685.convex.cloud",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
