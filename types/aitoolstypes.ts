@@ -60,7 +60,16 @@ export const createFolderOutputSchema = successSchema.extend({
 export const updateFolderOutputSchema = successSchema.extend({
   message: z.string(),
 });
-// --- (Optional but Recommended) Export the inferred TypeScript types ---
+export const generateCodeSnippetOutputSchema = successSchema.extend({
+  title: z.string(),
+  language: z.string(),
+  code: z.string(),
+  description: z.string().optional(),
+
+});
+
+export type GenerateCodeSnippetOutput = z.infer<typeof generateCodeSnippetOutputSchema>;
+
 
 export type CreateNoteOutput = z.infer<typeof createNoteOutputSchema>;
 export type UpdateNoteOutput = z.infer<typeof updateNoteOutputSchema>;

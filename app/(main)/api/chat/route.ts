@@ -1,11 +1,11 @@
 import { streamText, UIMessage, convertToModelMessages, tool, stepCountIs } from "ai";
-import { google } from '@ai-sdk/google';
+import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { ConvexClient, ConvexHttpClient } from "convex/browser";
 import { z } from 'zod';
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { blockNoteToMarkdown, markdownToBlockNote } from "@/lib/convertmarkdowntoblock";
-import { CreateFolderOutput, CreateNoteOutput, GenerateFlashcardOutput, GetFlashcardOutput, GetFolderItemsOutput, GetUserFlashcardsOutput, UpdateFolderOutput, UpdateNoteOutput } from "@/types/aitoolstypes";
+import { CreateFolderOutput, CreateNoteOutput, GenerateCodeSnippetOutput, GenerateFlashcardOutput, GetFlashcardOutput, GetFolderItemsOutput, GetUserFlashcardsOutput, UpdateFolderOutput, UpdateNoteOutput } from "@/types/aitoolstypes";
 
 
 export const maxDuration = 30;
@@ -92,7 +92,8 @@ You are a direct, efficient AI assistant. Your goal is to provide comprehensive,
 - **WEB SEARCH**: ${webSearch ? 'Use the \`searchTheWeb\` tool if the user asks for current events or information you cannot find in the chat history or tagged context.' : 'You do not have access to the web. Only use your internal knowledge.'}
 
 ## 5. SPECIFIC TOOL INSTRUCTIONS
-
+### Generating Code Snippets:
+1.  Use \`generateCodeSnippet\` to generate a code snippet.
 ### Generating Flashcards:
 1.  Call \`getfolderitems\` on the relevant folder.
 2.  Analyze existing notes, files, and flashcards.
@@ -104,7 +105,124 @@ You are a direct, efficient AI assistant. Your goal is to provide comprehensive,
 3.  Call \`createNote\` with the \`folderId\` and your generated \`title\` and \`content\` in markdown format when creating a note always make sure it has content  .
 4.   call \`updateNote\` with the new \`noteId\` and the full note content.
 5.  **IMPORTANT**: The \`content\` for \`updateNote\` and \`createNote\` MUST be written in standard **Markdown**.
-6.  Use Markdown headings (##, ###), lists (*, 1.), and bold text (**) to structure the note.
+
+**IMPORTANT**:  when writing in markdown make sure you follow these syntax 
+## Your Output Format Rules:
+
+### Standard Markdown:
+- Headings: # ## ### (max 3 levels)
+- Bold: **text** or __text__
+- Italic: *text* or _text_
+- Code: \`inline code\`
+- Code blocks: \`\`\`language ... \`\`\`
+- Lists: - or 1. or - [ ]
+- Tables: | Header | ... |
+- Quotes: > text
+- Dividers: ---
+
+### Math (Use Single $):
+- Inline math: $E=mc^2$
+- Complex formulas: $\\frac{a}{b}$, $\\sum_{i=1}^{n}$, $\\sqrt{x}$
+
+### Custom Blocks:
+
+**YouTube Videos**:
+@youtube[https://youtube.com/watch?v=VIDEO_ID]
+
+**Quiz/Flashcards** (JSON must be valid):
+@quiz[Topic Name]{
+[
+  {
+    "question": "Question text?",
+    "type": "single",
+    "difficulty": "Easy",
+    "options": ["A", "B", "C", "D"],
+    "correctAnswers": ["B"],
+    "explanation": "Why B is correct. Can use $math$ here."
+  }
+]
+}
+
+## Rules:
+1. Output ONLY markdown, no preamble
+2. Use single $ for math (not $$)
+3. Valid JSON in quiz blocks
+4. Include YouTube videos for visual topics
+5. Add quizzes after major sections
+6. Structure with clear headings
+7. Use tables for comparisons
+
+## Example Output:
+
+# Introduction to Topic
+
+Brief overview with key formula $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$.
+
+## Key Concept
+
+Explanation here.
+
+\`\`\`python
+# Code example
+def example():
+    return "Hello"
+\`\`\`
+
+@youtube[https://youtube.com/watch?v=relevant_video]
+
+---
+
+ **Quiz/Flashcards** (JSON must be valid):
+@quiz[Topic Name]{
+[
+  {
+    "question": "Question text here?",
+    "type": "single",
+    "difficulty": "Easy",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswers": ["Option B"],
+    "explanation": "Detailed explanation here."
+  },
+  {
+    "question": "Another question?",
+    "type": "multiple",
+    "difficulty": "Medium",
+    "options": ["A", "B", "C", "D"],
+    "correctAnswers": ["A", "C"],
+    "explanation": "Explanation for multiple choice."
+  }
+]
+}
+
+**CRITICAL QUIZ RULES**:
+1. The JSON MUST be a valid array inside the outer braces: @quiz[Topic]{ [array] }
+2. NO trailing commas in JSON objects or arrays
+3. All strings MUST use double quotes, not single quotes
+4. Escape special characters: use \\" for quotes inside strings, \\\\ for backslashes
+5. For math in explanations, use single $: "explanation": "The formula $x^2$ shows..."
+6. Newlines in strings must be escaped: \\n
+7. Test that your JSON is valid before outputting
+
+**Valid Example**:
+@quiz[Calculus]{
+[
+  {
+    "question": "What is the derivative of $x^2$?",
+    "type": "single",
+    "difficulty": "Easy",
+    "options": ["$x$", "$2x$", "$x^2$", "$2x^2$"],
+    "correctAnswers": ["$2x$"],
+    "explanation": "Using the power rule: $\\frac{d}{dx}(x^n) = nx^{n-1}$, so $\\frac{d}{dx}(x^2) = 2x^1 = 2x$."
+  }
+]
+}
+
+**Invalid Examples** (DO NOT DO THIS):
+❌ @quiz[Topic]{ {"question": "..."} }  // Not an array
+❌ @quiz[Topic]{ [..., ] }  // Trailing comma
+❌ @quiz[Topic]{ ['options'] }  // Single quotes
+❌ @quiz[Topic]{ [..., "explanation": "Use "quotes" here"] }  // Unescaped quotes
+
 
 `;
 
@@ -114,6 +232,14 @@ You are a direct, efficient AI assistant. Your goal is to provide comprehensive,
     model: thinking ? google('gemini-2.5-pro') : google('gemini-2.5-flash'),
     messages: convertToModelMessages(messages),
     system: system,
+    providerOptions:{
+      google: {
+      thinkingConfig: {
+        thinkingBudget: 8192,
+        includeThoughts: true,
+      },
+    } satisfies GoogleGenerativeAIProviderOptions,
+    },
     tools,
     stopWhen: stepCountIs(10),
   });
@@ -415,6 +541,26 @@ export function createTools(convex: ConvexHttpClient) {
         }
       }
     }),
+
+    generateCodeSnippet: tool({
+  description: 'Generate a code snippet. Use this when the user asks for code examples, algorithms, or solutions. This renders a nice code editor in the UI.',
+  inputSchema: z.object({
+    title: z.string().describe('Short title for the snippet, e.g., "Dijkstra Implementation"'),
+    language: z.string().describe('Programming language, e.g., "python", "typescript", "react"'),
+    code: z.string().describe('The actual code content'),
+    description: z.string().optional().describe('Brief explanation of what the code does'),
+  }),
+  execute: async ({ title, language, code, description }):Promise<GenerateCodeSnippetOutput | { success: false, error: string }> => {
+  
+    return { 
+      success: true, 
+      title, 
+      language, 
+      code, 
+      description,
+    };
+  }
+}),
     
 
   };

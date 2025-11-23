@@ -1,84 +1,97 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createReactBlockSpec } from "@blocknote/react";
 import { defaultProps } from "@blocknote/core";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Video, ArrowUp, Link as LinkIcon } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 /**
  * Helper function to parse a YouTube URL and extract the video ID.
- * This supports standard watch links, share links, and embed links.
  */
 function getYoutubeVideoId(url: string): string | null {
-  if (!url) {
-    return null;
-  }
-  
-  // This regex matches:
-  // - youtube.com/watch?v=...
-  // - youtu.be/...
-  // - youtube.com/embed/...
+  if (!url) return null;
   const regex =
     /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/;
   const match = url.match(regex);
-  
   return match ? match[1] : null;
 }
 
-// 1. Define the "blueprint" for our YouTube block
+// 1. Define the "blueprint"
 export const createYoutubeVideo = createReactBlockSpec(
   {
     type: "youtubeVideo",
     propSchema: {
       ...defaultProps,
-      // We'll store the video URL (as an embed-ready URL)
       videoUrl: {
         default: "",
       },
     },
-    content: "none", // This is a "leaf" block, like an image or embed
+    content: "none",
   },
   {
-    // 2. This is the React component that will be rendered
     render: (props) => <YoutubeVideoBlock {...props} />,
   }
 );
 
-// 3. This is our custom React component
+// 2. The Component
 function YoutubeVideoBlock({ block, editor }: any) {
-  // Stores the value of the <input> field
   const [urlInput, setUrlInput] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
 
-  // This function runs when the "Save" button is clicked
+  // Fix: Open the popover immediately after mount (avoids flushSync error)
+  useEffect(() => {
+    if (!block.props.videoUrl) {
+      const timer = setTimeout(() => {
+        setIsOpen(true);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [block.props.videoUrl]);
+
   const handleSubmit = () => {
-    // 1. Get the video ID from the input
     const videoId = getYoutubeVideoId(urlInput);
 
     if (!videoId) {
-      alert("Invalid YouTube URL. Please check the link and try again.");
+      // Simple validation: Shake or alert (using alert for simplicity here)
+      alert("Invalid YouTube URL. Please check the link.");
       return;
     }
 
-    // 2. Create the standard embed URL
     const embedUrl = `https://www.youtube.com/embed/${videoId}`;
 
-    // 3. Update the block's props with the new URL
-    // This will cause the component to re-render, hiding
-    // the input form and showing the video player.
+    // Update block props - this triggers re-render to show the video
     editor.updateBlock(block.id, {
       props: {
         videoUrl: embedUrl,
       },
     });
+    setIsOpen(false);
   };
 
-  // State 1: Show the video player
-  // If a videoUrl is already saved, we show the iframe
+  // Logic: If user clicks away (closes popover) and hasn't saved a URL, remove the block
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open && !block.props.videoUrl) {
+      // Small delay to prevent flickering if switching focus
+      setTimeout(() => {
+        editor.removeBlocks([block]);
+      }, 100);
+    }
+  };
+
+  // STATE 1: VIEW MODE (Video Player)
   if (block.props.videoUrl) {
     return (
       <div
-        className="rounded-lg overflow-hidden"
+        className="rounded-xl overflow-hidden my-4 ring-1 ring-border shadow-sm"
         style={{
           width: "100%",
-          aspectRatio: "16 / 9", // Modern CSS for 16:9 responsive embed
-          border: "2px solid var(--border, #e5e7eb)",
+          aspectRatio: "16 / 9",
         }}
       >
         <iframe
@@ -88,32 +101,55 @@ function YoutubeVideoBlock({ block, editor }: any) {
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-        ></iframe>
+        />
       </div>
     );
   }
 
-  // State 2: Show the input form
-  // If no videoUrl is set, we show the input prompt
+  // STATE 2: INPUT MODE (Popover)
   return (
-    <div className="bg-muted/30 border rounded-lg p-4 flex flex-col sm:flex-row items-center gap-2">
-      <label htmlFor={`yt-url-${block.id}`} className="text-sm font-medium text-muted-foreground">
-        YouTube URL:
-      </label>
-      <input
-        id={`yt-url-${block.id}`}
-        type="text"
-        value={urlInput}
-        onChange={(e) => setUrlInput(e.target.value)}
-        placeholder="https-://www.youtube.com/watch?v=..."
-        className="flex-grow w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-      />
-      <button
-        onClick={handleSubmit}
-        className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium w-full sm:w-auto"
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
+      {/* Anchor: Takes up a little space in the editor to show where the block is */}
+      <PopoverTrigger asChild>
+        <div className="h-12 w-full flex items-center justify-center gap-2 text-muted-foreground bg-muted/10 rounded-md border border-dashed border-transparent hover:border-muted transition-all cursor-pointer select-none opacity-50">
+          <Video className="w-4 h-4" /> <span>Add Video...</span>
+        </div>
+      </PopoverTrigger>
+
+      <PopoverContent
+        className="p-0 w-[500px] max-w-[90vw] border-none bg-transparent shadow-none"
+        align="start"
+        side="top"
+        sideOffset={-44} // Overlaps the trigger perfectly
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        Save
-      </button>
-    </div>
+        <div className="flex items-center p-1.5 rounded-xl border bg-background shadow-xl ring-1 ring-foreground/5">
+          {/* Icon */}
+          <div className="flex items-center justify-center h-8 w-8 ml-1 rounded-md bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+            <Video className="h-4 w-4" />
+          </div>
+
+          <Input
+            placeholder="Paste YouTube URL..."
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            className="flex-grow border-none shadow-none bg-transparent focus-visible:ring-0 text-base h-9 px-3"
+            autoFocus
+          />
+
+          <div className="flex items-center gap-1 border-l pl-2">
+            <Button
+              size="icon"
+              onClick={handleSubmit}
+              disabled={!urlInput}
+              className="h-8 w-8 rounded-lg transition-all"
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

@@ -75,6 +75,7 @@ import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
 import {
   CreateFlashcard,
   CreateNote,
+  GenerateCodeSnippet,
   GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
@@ -121,11 +122,9 @@ const Chat = ({ chatId }: Props) => {
   const initialMessages = useQuery(api.chat.getChat, { chatId: chatId }); //fetch the messages form convex
   const addMessage = useMutation(api.chat.addmessage);
   const updateChat = useMutation(api.chat.updateChat);
-  const [contextFolder, setContextFolder] = useState<Doc<"folders">[]>(
-    []
-  );
+  const [contextFolder, setContextFolder] = useState<Doc<"folders">[]>([]);
   const [contextNote, setContextNote] = useState<Doc<"notes">[]>([]);
-  
+
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [hasProcessedPendingMessage, setHasProcessedPendingMessage] =
@@ -133,7 +132,7 @@ const Chat = ({ chatId }: Props) => {
 
   const { getToken } = useAuth();
   const allFolders = useQuery(api.folders.fetchFolders);
-    const allNotes = useQuery(api.notes.fetchNotes); // Fetches all notes
+  const allNotes = useQuery(api.notes.fetchNotes); // Fetches all notes
 
   // Filtered data for the command list
   const filteredFolders = allFolders?.filter(
@@ -147,8 +146,8 @@ const Chat = ({ chatId }: Props) => {
       note.title.toLowerCase().includes(search.toLowerCase())
   );
   const pendingMessageProcessedRef = useRef(false);
-  
-  const {body}=useAiStore()
+
+  const { body } = useAiStore();
 
   const pendingMessage = useAiStore((state) => state.pendingMessage);
   const setPendingMessage = useAiStore((state) => state.setPendingMessage);
@@ -192,10 +191,10 @@ const Chat = ({ chatId }: Props) => {
   }, [initialMessages, setMessages]);
 
   const handleSubmit = async (message: PromptInputMessage) => {
-    if (!validateFiles(message.files)) {
-      return; // Stop execution if files are invalid
-    }
-    const hasText = Boolean(message.text);
+    // if (!validateFiles(message.files)) {
+    //   return; // Stop execution if files are invalid
+    // }
+    const hasText = Boolean(message.text?.trim());
     const hasAttachments = Boolean(message.files?.length);
 
     if (!(hasText || hasAttachments)) {
@@ -213,11 +212,11 @@ const Chat = ({ chatId }: Props) => {
     } catch (error) {
       console.error("Failed to save user message:", error);
     }
-    console.log('contextFolder',contextFolder)
-    console.log('contextNote',contextNote)
+    console.log("contextFolder", contextFolder);
+    console.log("contextNote", contextNote);
     sendMessage(
       {
-        text: message.text ||'',
+        text: message.text || "",
         files: message.files,
       },
       {
@@ -247,33 +246,33 @@ const Chat = ({ chatId }: Props) => {
 
         // Send the pending message
         const token = await getToken({ template: "convex" });
-    try {
-      await addMessage({
-        chatId,
-        role: "user",
-        content: pendingMessage.text || "",
-        parts: [{ type: "text", text: pendingMessage.text }],
-      });
-    } catch (error) {
-      console.error("Failed to save user message:", error);
-    }
-    console.log('body',body)
-    sendMessage(
-      {
-        text: pendingMessage.text ||'',
-        files: pendingMessage.files,
-      },
-      {
-        body: {
-          webSearch: body.webSearch,
-          contextFolder: body.contextFolder,
-          convexToken: token,
-          contextNote: body.contextNote,
-          studyMode: body.studyMode,
-          thinking: body.thinking,
-        },
-      }
-    );
+        try {
+          await addMessage({
+            chatId,
+            role: "user",
+            content: pendingMessage.text || "",
+            parts: [{ type: "text", text: pendingMessage.text }],
+          });
+        } catch (error) {
+          console.error("Failed to save user message:", error);
+        }
+        console.log("body", body);
+        sendMessage(
+          {
+            text: pendingMessage.text || "",
+            files: pendingMessage.files,
+          },
+          {
+            body: {
+              webSearch: body.webSearch,
+              contextFolder: body.contextFolder,
+              convexToken: token,
+              contextNote: body.contextNote,
+              studyMode: body.studyMode,
+              thinking: body.thinking,
+            },
+          }
+        );
 
         // Clear the pending message from the store
         setPendingMessage(null);
@@ -282,7 +281,7 @@ const Chat = ({ chatId }: Props) => {
     };
 
     sendInitialMessage();
-  }, [pendingMessage, initialMessages, setPendingMessage,body,]);
+  }, [pendingMessage, initialMessages, setPendingMessage, body]);
   return (
     <div className=" p-6 relative size-full ">
       <div className="flex flex-col h-full  ">
@@ -291,7 +290,7 @@ const Chat = ({ chatId }: Props) => {
           <ChatHistoryPopover />
         </div>
         <Conversation>
-          <ConversationContent className="" >
+          <ConversationContent className="">
             {messages.map((message) => (
               <div key={message.id}>
                 {message.role === "assistant" &&
@@ -322,8 +321,21 @@ const Chat = ({ chatId }: Props) => {
                   if (part.type === "text") {
                     return (
                       <div key={`${message.id}-${i}`} className="w-full">
-                        <Message from={message.role}>
-                          <MessageContent>
+                        <Message
+                          from={message.role}
+                          className={
+                            message.role === "assistant"
+                              ? "w-full max-w-none mr-auto"
+                              : "ml-auto max-w-xl"
+                          }
+                        >
+                          <MessageContent
+                            className={
+                              message.role === "assistant"
+                                ? "w-full max-w-none bg-background text-foreground "
+                                : ""
+                            }
+                          >
                             <Response isAnimating={status === "streaming"}>
                               {part.text}
                             </Response>
@@ -371,52 +383,31 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-createNote") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-createNote"
-                          title="Creating Note"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <CreateNote output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div>
+                        {part.state === "output-available" && (
+                          <CreateNote output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-updateNote") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-updateNote"
-                          title="Updating Note"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <UpdateNote output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div>
+                        {part.state === "output-available" && (
+                          <UpdateNote output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-generateFlashcards") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-generateFlashcards"
-                          title="Creating Flashcard"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <CreateFlashcard output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div>
+                        {part.state === "output-available" && (
+                          <CreateFlashcard output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
@@ -439,38 +430,24 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-getUserFlashcards") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-getUserFlashcards"
-                          title="Fetching Flashcards"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <GetUserFlashcards output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div>
+                        {part.state === "output-available" && (
+                          <GetUserFlashcards output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-getFlashcard") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-getFlashcard"
-                          title="Analyzing Flashcard"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <GetFlashcard output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div>
+                        {part.state === "output-available" && (
+                          <GetFlashcard output={part.output} />
+                        )}
+                      </div>
                     );
                   }
-                  if(part.type === 'tool-searchTheWeb'){
+                  if (part.type === "tool-searchTheWeb") {
                     return (
                       <Tool key={`${message.id}-${i}`}>
                         <ToolHeader
@@ -478,11 +455,10 @@ const Chat = ({ chatId }: Props) => {
                           type="tool-searchTheWeb"
                           title="Searching the Web"
                         />
-                       
                       </Tool>
                     );
                   }
-                  if(part.type === 'tool-getNoteContent'){
+                  if (part.type === "tool-getNoteContent") {
                     return (
                       <Tool key={`${message.id}-${i}`}>
                         <ToolHeader
@@ -490,192 +466,195 @@ const Chat = ({ chatId }: Props) => {
                           type="tool-getNoteContent"
                           title="Fetching Note Content"
                         />
-                       
                       </Tool>
-                    )
+                    );
+                  }
+                  if (part.type === "tool-generateCodeSnippet") {
+                    return (
+                      <div>
+                        {part.state === "output-available" && (
+                          <GenerateCodeSnippet output={part.output} />
+                        )}
+                      </div>
+                    );
                   }
 
                   return null;
                 })}
               </div>
             ))}
-            {status === "submitted" && <Shimmer>Thinking...</Shimmer>}
+            {status === "submitted" && <Shimmer>Studying...</Shimmer>}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-        <PromptInput
-          onSubmit={handleSubmit}
-          className="mt-4"
-          globalDrop
-          multiple
-        >
+        <PromptInput onSubmit={handleSubmit} className="" globalDrop multiple>
           <PromptInputHeader>
             <PromptInputAttachments>
               {(attachment) => <PromptInputAttachment data={attachment} />}
             </PromptInputAttachments>
             <PromptInputHoverCard
-            open={popoverOpen}
-            onOpenChange={setPopoverOpen}
-          >
-            <PromptInputHoverCardTrigger>
-              <PromptInputButton
-                className="!h-8"
-                size="icon-sm"
-                variant="outline"
-              >
-                <AtSignIcon className="text-muted-foreground" size={12} />
-              </PromptInputButton>
-            </PromptInputHoverCardTrigger>
-            <PromptInputHoverCardContent className="w-[400px] p-0 scrollbar-hidden">
-              <PromptInputCommand>
-                <PromptInputCommandInput
-                  className="border-none focus-visible:ring-0"
-                  placeholder="Add folders or notes..."
-                  value={search}
-                  onValueChange={setSearch}
-                />
-                <PromptInputCommandList>
-                  <PromptInputCommandEmpty className="p-3 text-muted-foreground text-sm">
-                    {allFolders === undefined || allNotes === undefined
-                      ? "Loading..."
-                      : "No items found."}
-                  </PromptInputCommandEmpty>
+              open={popoverOpen}
+              onOpenChange={setPopoverOpen}
+            >
+              <PromptInputHoverCardTrigger>
+                <PromptInputButton
+                  className="!h-8"
+                  size="icon-sm"
+                  variant="outline"
+                >
+                  <AtSignIcon className="text-muted-foreground" size={12} />
+                </PromptInputButton>
+              </PromptInputHoverCardTrigger>
+              <PromptInputHoverCardContent className="w-[400px] p-0 scrollbar-hidden">
+                <PromptInputCommand>
+                  <PromptInputCommandInput
+                    className="border-none focus-visible:ring-0"
+                    placeholder="Add folders or notes..."
+                    value={search}
+                    onValueChange={setSearch}
+                  />
+                  <PromptInputCommandList>
+                    <PromptInputCommandEmpty className="p-3 text-muted-foreground text-sm">
+                      {allFolders === undefined || allNotes === undefined
+                        ? "Loading..."
+                        : "No items found."}
+                    </PromptInputCommandEmpty>
 
-                  {/* Added Context (from arrays) */}
-                  {(contextFolder.length > 0 || contextNote.length > 0) && (
-                    <PromptInputCommandGroup heading="Added">
-                      {contextFolder.map((folder) => (
+                    {/* Added Context (from arrays) */}
+                    {(contextFolder.length > 0 || contextNote.length > 0) && (
+                      <PromptInputCommandGroup heading="Added">
+                        {contextFolder.map((folder) => (
+                          <PromptInputCommandItem
+                            key={folder._id}
+                            value={folder._id}
+                            onSelect={() => {
+                              setContextFolder((prev) =>
+                                prev.filter((f) => f._id !== folder._id)
+                              );
+                              setPopoverOpen(false);
+                            }}
+                          >
+                            <Folder />
+                            <span>{folder.name}</span>
+                            <span className="ml-auto">
+                              <X className="size-4" />
+                            </span>
+                          </PromptInputCommandItem>
+                        ))}
+                        {contextNote.map((note) => (
+                          <PromptInputCommandItem
+                            key={note._id}
+                            value={note._id}
+                            onSelect={() => {
+                              setContextNote((prev) =>
+                                prev.filter((n) => n._id !== note._id)
+                              );
+                              setPopoverOpen(false);
+                            }}
+                          >
+                            <Notebook />
+                            <span>{note.title}</span>
+                            <span className="ml-auto">
+                              <X className="size-4" />
+                            </span>
+                          </PromptInputCommandItem>
+                        ))}
+                      </PromptInputCommandGroup>
+                    )}
+
+                    {/* Folders (adds to array) */}
+                    <PromptInputCommandGroup heading="Folders">
+                      {filteredFolders?.map((folder) => (
                         <PromptInputCommandItem
                           key={folder._id}
                           value={folder._id}
                           onSelect={() => {
-                            setContextFolder((prev) =>
-                              prev.filter((f) => f._id !== folder._id)
-                            );
+                            setContextFolder((prev) => [...prev, folder]);
                             setPopoverOpen(false);
+                            setSearch("");
                           }}
                         >
-                          <Folder />
-                          <span>{folder.name}</span>
-                          <span className="ml-auto">
-                            <X className="size-4" />
-                          </span>
-                        </PromptInputCommandItem>
-                      ))}
-                      {contextNote.map((note) => (
-                        <PromptInputCommandItem
-                          key={note._id}
-                          value={note._id}
-                          onSelect={() => {
-                            setContextNote((prev) =>
-                              prev.filter((n) => n._id !== note._id)
-                            );
-                            setPopoverOpen(false);
-                          }}
-                        >
-                          <Notebook />
-                          <span>{note.title}</span>
-                          <span className="ml-auto">
-                            <X className="size-4" />
+                          <Folder className="text-primary" />
+                          <span className="font-medium text-sm">
+                            {folder.name}
                           </span>
                         </PromptInputCommandItem>
                       ))}
                     </PromptInputCommandGroup>
-                  )}
 
-                  {/* Folders (adds to array) */}
-                  <PromptInputCommandGroup heading="Folders">
-                    {filteredFolders?.map((folder) => (
-                      <PromptInputCommandItem
-                        key={folder._id}
-                        value={folder._id}
-                        onSelect={() => {
-                          setContextFolder((prev) => [...prev, folder]);
-                          setPopoverOpen(false);
-                          setSearch("");
-                        }}
-                      >
-                        <Folder className="text-primary" />
-                        <span className="font-medium text-sm">
-                          {folder.name}
-                        </span>
-                      </PromptInputCommandItem>
-                    ))}
-                  </PromptInputCommandGroup>
+                    {/* Notes (adds to array) */}
+                    <PromptInputCommandGroup heading="Notes">
+                      {filteredNotes?.map((note) => (
+                        <PromptInputCommandItem
+                          key={note._id}
+                          value={note._id}
+                          onSelect={() => {
+                            setContextNote((prev) => [...prev, note]);
+                            setPopoverOpen(false);
+                            setSearch("");
+                          }}
+                        >
+                          <Notebook className="text-primary" />
+                          <span className="font-medium text-sm">
+                            {note.title}
+                          </span>
+                        </PromptInputCommandItem>
+                      ))}
+                    </PromptInputCommandGroup>
+                  </PromptInputCommandList>
+                </PromptInputCommand>
+              </PromptInputHoverCardContent>
+            </PromptInputHoverCard>
 
-                  {/* Notes (adds to array) */}
-                  <PromptInputCommandGroup heading="Notes">
-                    {filteredNotes?.map((note) => (
-                      <PromptInputCommandItem
-                        key={note._id}
-                        value={note._id}
-                        onSelect={() => {
-                          setContextNote((prev) => [...prev, note]);
-                          setPopoverOpen(false);
-                          setSearch("");
-                        }}
-                      >
-                        <Notebook className="text-primary" />
-                        <span className="font-medium text-sm">
-                          {note.title}
-                        </span>
-                      </PromptInputCommandItem>
-                    ))}
-                  </PromptInputCommandGroup>
-                </PromptInputCommandList>
-              </PromptInputCommand>
-            </PromptInputHoverCardContent>
-          </PromptInputHoverCard>
-
-          {/* +++ 3. "X" ON TAGS UI +++ */}
-          {/* Tags for selected folders */}
-          {contextFolder.map((folder) => (
-            <PromptInputButton
-              key={folder._id}
-              size="sm"
-              variant="outline"
-              className="group max-w-[150px]"
-            >
-              <Folder size={12} className="mr-1.5 shrink-0" />
-              <span className="truncate">{folder.name}</span>
-              <span
-              role="button"
-                className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
-                onClick={(e) => {
-                  e.stopPropagation(); // Stop popover from opening
-                  setContextFolder((prev) =>
-                    prev.filter((f) => f._id !== folder._id)
-                  );
-                }}
+            {/* +++ 3. "X" ON TAGS UI +++ */}
+            {/* Tags for selected folders */}
+            {contextFolder.map((folder) => (
+              <PromptInputButton
+                key={folder._id}
+                size="sm"
+                variant="outline"
+                className="group max-w-[150px]"
               >
-                <X size={12} />
-              </span>
-            </PromptInputButton>
-          ))}
-          {/* Tags for selected notes */}
-          {contextNote.map((note) => (
-            <PromptInputButton
-              key={note._id}
-              size="sm"
-              variant="outline"
-              className="group max-w-[150px]"
-            >
-              <Notebook size={12} className="mr-1.5 shrink-0" />
-              <span className="truncate">{note.title}</span>
-              <span
-              role="button"
-                className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
-                onClick={(e) => {
-                  e.stopPropagation(); // Stop popover from opening
-                  setContextNote((prev) =>
-                    prev.filter((n) => n._id !== note._id)
-                  );
-                }}
+                <Folder size={12} className="mr-1.5 shrink-0" />
+                <span className="truncate">{folder.name}</span>
+                <span
+                  role="button"
+                  className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Stop popover from opening
+                    setContextFolder((prev) =>
+                      prev.filter((f) => f._id !== folder._id)
+                    );
+                  }}
+                >
+                  <X size={12} />
+                </span>
+              </PromptInputButton>
+            ))}
+            {/* Tags for selected notes */}
+            {contextNote.map((note) => (
+              <PromptInputButton
+                key={note._id}
+                size="sm"
+                variant="outline"
+                className="group max-w-[150px]"
               >
-                <X size={12} />
-              </span>
-            </PromptInputButton>
-          ))}
+                <Notebook size={12} className="mr-1.5 shrink-0" />
+                <span className="truncate">{note.title}</span>
+                <span
+                  role="button"
+                  className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Stop popover from opening
+                    setContextNote((prev) =>
+                      prev.filter((n) => n._id !== note._id)
+                    );
+                  }}
+                >
+                  <X size={12} />
+                </span>
+              </PromptInputButton>
+            ))}
           </PromptInputHeader>
           <PromptInputBody>
             <PromptInputTextarea

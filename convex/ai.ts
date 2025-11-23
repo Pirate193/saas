@@ -5,7 +5,7 @@ import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 
-const agent = new Agent(components.agent,{
+export const agent = new Agent(components.agent,{
     name:'ai',
     languageModel:google('gemini-2.5-flash'),
     instructions:'You are a helpful assistant.',

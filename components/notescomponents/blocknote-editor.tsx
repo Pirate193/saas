@@ -25,15 +25,6 @@ import { codeBlockOptions } from "@blocknote/code-block";
 import { BrainCircuit, Paintbrush, Video, Youtube } from "lucide-react";
 import createWhiteboard from "./customBlocks";
 import { Fragment } from "react";
-
-import {
-  AIMenuSuggestionItem,
-  getAIExtension,
-  aiDocumentFormats,
-  AIMenu,
-  getDefaultAIMenuItems,
-  createAIExtension,
-} from "@blocknote/xl-ai";
 import { ScrollArea } from "../ui/scroll-area";
 import { createYoutubeVideo } from "./youtubeBlocks";
 import { useConvex, useMutation } from "convex/react";
@@ -333,7 +324,7 @@ const BlocknoteEditor = ({
         triggerCharacter="/"
         getItems={async (query) =>
           // Filter items based on user's search query
-          filterSuggestionItems(getCustomSlashMenuItems(editor), query)
+          filterSuggestionItems(getCustomSlashMenuItems(editor as any), query)
         }
         suggestionMenuComponent={CustomSlashMenu}
       />

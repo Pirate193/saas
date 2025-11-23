@@ -1,106 +1,244 @@
-// lib/markdown-to-blocknote.ts
 import { randomUUID } from 'crypto';
 
 interface BlockNoteBlock {
   id: string;
   type: string;
   props: Record<string, any>;
-  content: Array<{ type: string; text: string; styles: Record<string, any> }>;
+  content?: any; // Can be array or object (for tables)
   children: BlockNoteBlock[];
 }
 
 interface TextContent {
   type: string;
-  text: string;
-  styles: Record<string, any>;
+  text?: string;
+  props?: Record<string, any>;
+  styles?: Record<string, any>;
 }
 
 /**
- * Converts markdown text to BlockNote JSON format
- * This handles the conversion from LLM-generated markdown to BlockNote's structure
+ * Enhanced markdown to BlockNote converter
+ * Supports custom blocks: YouTube, Quiz, Tables, Math, Dividers
  */
 export function markdownToBlockNote(markdown: string): string {
   if (!markdown || markdown.trim() === '') {
-    // Return a single empty paragraph for empty input
     return JSON.stringify([createBlock('paragraph', {}, [])], null, 2);
   }
 
   const lines = markdown.split('\n');
   const blocks: BlockNoteBlock[] = [];
-  
+
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
     const block = parseLine(line, lines, i);
-    
+
     if (block) {
       blocks.push(block);
-      // If it's a code block, skip the lines we've consumed
-      if (block.type === 'codeBlock' && (block.props as any).consumedLines) {
+      // Skip consumed lines
+      if ((block.props as any).consumedLines) {
         i += (block.props as any).consumedLines;
         delete (block.props as any).consumedLines;
       }
     }
-    
+
     i++;
   }
-  
-  // Ensure we always have at least one block
+
   if (blocks.length === 0) {
     blocks.push(createBlock('paragraph', {}, []));
   }
-  
+
   return JSON.stringify(blocks, null, 2);
 }
 
 function parseLine(line: string, allLines: string[], currentIndex: number): BlockNoteBlock | null {
   const trimmed = line.trim();
-  
+
   // Empty line -> empty paragraph
   if (!trimmed) {
     return createBlock('paragraph', {}, []);
   }
-  
+
+  // ============ CUSTOM BLOCKS ============
+
+  // Divider/Separator (--- or ***)
+  if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+    return {
+      id: randomUUID(),
+      type: 'divider',
+      props: {},
+      children: []
+    };
+  }
+
+  // YouTube Video (@youtube[URL])
+  const youtubeMatch = trimmed.match(/^@youtube\[(.+?)\]$/);
+  if (youtubeMatch) {
+    let videoUrl = youtubeMatch[1].trim();
+    
+    // Convert regular YouTube URL to embed format
+    if (videoUrl.includes('youtube.com/watch?v=')) {
+      const videoId = new URL(videoUrl).searchParams.get('v');
+      videoUrl = `https://www.youtube.com/embed/${videoId}`;
+    } else if (videoUrl.includes('youtu.be/')) {
+      const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+      videoUrl = `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    return {
+      id: randomUUID(),
+      type: 'youtubeVideo',
+      props: {
+        backgroundColor: 'default',
+        textColor: 'default',
+        textAlignment: 'left',
+        videoUrl: videoUrl
+      },
+      children: []
+    };
+  }
+
+  // Quiz Block (@quiz[topic]{JSON})
+ const quizMatch = trimmed.match(/^@quiz\[(.+?)\]\{/);
+if (quizMatch) {
+  const topic = quizMatch[1].trim();
+  let fullContent = '';
+  let j = currentIndex;
+
+  // Collect all lines until we find the matching closing brace
+  while (j < allLines.length) {
+    fullContent += allLines[j];
+    if (j > currentIndex) fullContent += '\n';
+    j++;
+    
+    // Check if we've collected the complete quiz block
+    // Count braces to find the matching closing brace
+    let braceCount = 0;
+    let inQuiz = false;
+    
+    for (const char of fullContent) {
+      if (char === '{') {
+        braceCount++;
+        inQuiz = true;
+      } else if (char === '}') {
+        braceCount--;
+        if (inQuiz && braceCount === 0) {
+          // Found matching closing brace
+          break;
+        }
+      }
+    }
+    
+    if (inQuiz && braceCount === 0) break;
+  }
+
+  try {
+    // Extract JSON between the outer { }
+    // Format: @quiz[topic]{ JSON_ARRAY }
+    const startBrace = fullContent.indexOf('{');
+    const endBrace = fullContent.lastIndexOf('}');
+    
+    if (startBrace === -1 || endBrace === -1 || endBrace <= startBrace) {
+      console.error('Invalid quiz format: missing braces');
+      return createBlock('paragraph', {}, [createTextContent(`[Invalid Quiz: ${topic}]`)]);
+    }
+    
+    // Extract content between braces (skip the outer { })
+    const jsonContent = fullContent.substring(startBrace + 1, endBrace).trim();
+    
+    // Validate it's proper JSON array
+    const parsed = JSON.parse(jsonContent);
+    
+    if (!Array.isArray(parsed)) {
+      throw new Error('Quiz data must be a JSON array');
+    }
+    
+    const block = {
+      id: randomUUID(),
+      type: 'quiz',
+      props: {
+        topic: topic,
+        quizzesData: jsonContent, // Store the array JSON string
+        isGeneratingInitial: false
+      },
+      children: []
+    };
+    
+    (block.props as any).consumedLines = j - currentIndex - 1;
+    return block;
+    
+  } catch (e) {
+    console.error('Invalid quiz JSON:', e);
+    return createBlock('paragraph', {}, [createTextContent(`[Invalid Quiz: ${topic}]`)]);
+  }
+}
+  // Table (@table or markdown table)
+  if (trimmed.startsWith('@table') || trimmed.startsWith('|')) {
+    return parseTable(allLines, currentIndex);
+  }
+
+  // ============ STANDARD BLOCKS ============
+
   // Headings (# ## ###)
   const headingMatch = trimmed.match(/^(#{1,3})\s+(.+)$/);
   if (headingMatch) {
     const level = Math.min(headingMatch[1].length, 3) as 1 | 2 | 3;
     const text = headingMatch[2].trim();
-    return createBlock('heading', { level }, parseInlineContent(text));
+    return createBlock('heading', { level, isToggleable: false }, parseInlineContent(text));
   }
-  
+
   // Code blocks (```language)
   if (trimmed.startsWith('```')) {
     const language = trimmed.slice(3).trim() || 'plaintext';
     const codeLines: string[] = [];
     let j = currentIndex + 1;
-    
-    // Collect code lines until closing ```
+
     while (j < allLines.length && !allLines[j].trim().startsWith('```')) {
       codeLines.push(allLines[j]);
       j++;
     }
-    
+
     const codeText = codeLines.join('\n');
-    const block = createBlock('codeBlock', { language }, [createTextContent(codeText)]);
+    const block = {
+      id: randomUUID(),
+      type: 'codeBlock',
+      props: { language },
+      content: [createTextContent(codeText)],
+      children: []
+    };
     (block.props as any).consumedLines = j - currentIndex;
     return block;
   }
-  
+
+  // Blockquote (> text)
+  if (trimmed.startsWith('>')) {
+    const text = trimmed.slice(1).trim();
+    return {
+      id: randomUUID(),
+      type: 'quote',
+      props: {
+        backgroundColor: 'default',
+        textColor: 'default'
+      },
+      content: parseInlineContent(text),
+      children: []
+    };
+  }
+
   // Bullet list (- or *)
   const bulletMatch = trimmed.match(/^[-*]\s+(.+)$/);
-  if (bulletMatch && !trimmed.match(/^[-*]\s+\[/)) { // Not a checkbox
+  if (bulletMatch && !trimmed.match(/^[-*]\s+\[/)) {
     const text = bulletMatch[1].trim();
     return createBlock('bulletListItem', {}, parseInlineContent(text));
   }
-  
+
   // Numbered list (1. 2. etc)
   const numberedMatch = trimmed.match(/^\d+\.\s+(.+)$/);
   if (numberedMatch) {
     const text = numberedMatch[1].trim();
     return createBlock('numberedListItem', {}, parseInlineContent(text));
   }
-  
+
   // Checkbox list (- [ ] or - [x])
   const checkboxMatch = trimmed.match(/^[-*]\s+\[([ xX])\]\s+(.+)$/);
   if (checkboxMatch) {
@@ -108,36 +246,120 @@ function parseLine(line: string, allLines: string[], currentIndex: number): Bloc
     const text = checkboxMatch[2].trim();
     return createBlock('checkListItem', { checked }, parseInlineContent(text));
   }
-  
-  // Blockquote (> text)
-  if (trimmed.startsWith('>')) {
-    const text = trimmed.slice(1).trim();
-    return createBlock('paragraph', {}, parseInlineContent(text));
-  }
-  
+
   // Default: paragraph with inline formatting
   return createBlock('paragraph', {}, parseInlineContent(trimmed));
 }
 
 /**
- * Parse inline markdown formatting (bold, italic, code, links)
- * This creates an array of text content with proper styles
+ * Parse markdown tables into BlockNote table structure
+ */
+function parseTable(lines: string[], startIndex: number): BlockNoteBlock | null {
+  const tableLines: string[] = [];
+  let i = startIndex;
+
+  // Collect table lines
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (!line.startsWith('|') && i > startIndex) break;
+    if (line.startsWith('|')) {
+      tableLines.push(line);
+    }
+    i++;
+  }
+
+  if (tableLines.length < 2) return null;
+
+  // Parse table rows
+  const rows = tableLines
+    .filter((line, idx) => {
+      // Skip separator line (|---|---|)
+      if (idx === 1 && line.match(/^\|[\s\-:|]+\|$/)) return false;
+      return true;
+    })
+    .map(line => {
+      return line
+        .split('|')
+        .slice(1, -1) // Remove empty first/last elements
+        .map(cell => cell.trim());
+    });
+
+  if (rows.length === 0) return null;
+
+  // Build table structure
+  const columnCount = rows[0].length;
+  const tableContent = {
+    type: 'tableContent',
+    columnWidths: Array(columnCount).fill(null),
+    rows: rows.map(row => ({
+      cells: row.map(cellText => ({
+        type: 'tableCell',
+        content: parseInlineContent(cellText),
+        props: {
+          colspan: 1,
+          rowspan: 1,
+          backgroundColor: 'default',
+          textColor: 'default',
+          textAlignment: 'left'
+        }
+      }))
+    }))
+  };
+
+  const block = {
+    id: randomUUID(),
+    type: 'table',
+    props: {
+      textColor: 'default'
+    },
+    content: tableContent,
+    children: []
+  };
+
+  (block.props as any).consumedLines = i - startIndex - 1;
+  return block;
+}
+
+/**
+ * Parse inline markdown formatting including math
+ * Supports: bold, italic, code, strikethrough, math ($latex$)
  */
 function parseInlineContent(text: string): TextContent[] {
   const segments: TextContent[] = [];
   let currentText = '';
   let i = 0;
-  
-  // Simple parsing - can be enhanced for nested formatting
+
   while (i < text.length) {
-    // Bold (**text**)
-    if (text.substr(i, 2) === '**') {
+    // Math inline ($latex$)
+    if (text[i] === '$' && text[i + 1] !== '$') {
       if (currentText) {
         segments.push(createTextContent(currentText));
         currentText = '';
       }
-      
-      const endIndex = text.indexOf('**', i + 2);
+
+      const endIndex = text.indexOf('$', i + 1);
+      if (endIndex !== -1) {
+        const latex = text.substring(i + 1, endIndex);
+        segments.push({
+          type: 'math',
+          props: {
+            latex: latex.trim()
+          }
+        });
+        i = endIndex + 1;
+        continue;
+      }
+    }
+
+    // Bold (**text** or __text__)
+    if (text.substr(i, 2) === '**' || text.substr(i, 2) === '__') {
+      if (currentText) {
+        segments.push(createTextContent(currentText));
+        currentText = '';
+      }
+
+      const delimiter = text.substr(i, 2);
+      const endIndex = text.indexOf(delimiter, i + 2);
       if (endIndex !== -1) {
         const boldText = text.substring(i + 2, endIndex);
         segments.push(createTextContent(boldText, { bold: true }));
@@ -145,30 +367,47 @@ function parseInlineContent(text: string): TextContent[] {
         continue;
       }
     }
-    
-    // Italic (*text* but not **)
-    if (text[i] === '*' && text[i + 1] !== '*') {
+
+    // Italic (*text* or _text_)
+    if ((text[i] === '*' && text[i + 1] !== '*') || (text[i] === '_' && text[i + 1] !== '_')) {
       if (currentText) {
         segments.push(createTextContent(currentText));
         currentText = '';
       }
-      
-      const endIndex = text.indexOf('*', i + 1);
-      if (endIndex !== -1 && text[endIndex + 1] !== '*') {
+
+      const delimiter = text[i];
+      const endIndex = text.indexOf(delimiter, i + 1);
+      if (endIndex !== -1 && text[endIndex + 1] !== delimiter) {
         const italicText = text.substring(i + 1, endIndex);
         segments.push(createTextContent(italicText, { italic: true }));
         i = endIndex + 1;
         continue;
       }
     }
-    
-    // Inline code (`code`)
-    if (text[i] === '`') {
+
+    // Strikethrough (~~text~~)
+    if (text.substr(i, 2) === '~~') {
       if (currentText) {
         segments.push(createTextContent(currentText));
         currentText = '';
       }
-      
+
+      const endIndex = text.indexOf('~~', i + 2);
+      if (endIndex !== -1) {
+        const strikeText = text.substring(i + 2, endIndex);
+        segments.push(createTextContent(strikeText, { strike: true }));
+        i = endIndex + 2;
+        continue;
+      }
+    }
+
+    // Inline code (`code`)
+    if (text[i] === '`' && text[i + 1] !== '`') {
+      if (currentText) {
+        segments.push(createTextContent(currentText));
+        currentText = '';
+      }
+
       const endIndex = text.indexOf('`', i + 1);
       if (endIndex !== -1) {
         const codeText = text.substring(i + 1, endIndex);
@@ -177,16 +416,15 @@ function parseInlineContent(text: string): TextContent[] {
         continue;
       }
     }
-    
+
     currentText += text[i];
     i++;
   }
-  
-  // Add remaining text
+
   if (currentText) {
     segments.push(createTextContent(currentText));
   }
-  
+
   return segments.length > 0 ? segments : [createTextContent('')];
 }
 
@@ -200,9 +438,9 @@ function createBlock(
     textColor: 'default',
     textAlignment: 'left',
   };
-  
+
   const props = { ...defaultProps, ...customProps };
-  
+
   return {
     id: randomUUID(),
     type,
@@ -224,46 +462,24 @@ function createTextContent(
 }
 
 /**
- * Helper to validate BlockNote JSON structure
- */
-export function isValidBlockNoteJSON(json: string): boolean {
-  try {
-    const parsed = JSON.parse(json);
-    if (!Array.isArray(parsed)) return false;
-    
-    return parsed.every((block: any) => 
-      block.id &&
-      block.type &&
-      block.props &&
-      Array.isArray(block.content) &&
-      Array.isArray(block.children)
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Converts BlockNote JSON format back to markdown
- * Useful for exporting notes, feeding to other LLMs, or creating backups
+ * Convert BlockNote back to markdown with custom blocks
  */
 export function blockNoteToMarkdown(blockNoteJSON: string): string {
   try {
     const blocks: BlockNoteBlock[] = JSON.parse(blockNoteJSON);
-    
     if (!Array.isArray(blocks)) {
-      throw new Error('Invalid BlockNote format: expected array of blocks');
+      throw new Error('Invalid BlockNote format');
     }
-    
+
     const lines: string[] = [];
-    
+
     for (const block of blocks) {
       const line = blockToMarkdown(block);
       if (line !== null) {
         lines.push(line);
       }
     }
-    
+
     return lines.join('\n');
   } catch (error) {
     console.error('Error converting BlockNote to Markdown:', error);
@@ -272,172 +488,158 @@ export function blockNoteToMarkdown(blockNoteJSON: string): string {
 }
 
 function blockToMarkdown(block: BlockNoteBlock): string | null {
-  const content = contentToMarkdown(block.content);
-  
   switch (block.type) {
     case 'heading': {
       const level = block.props.level || 1;
       const hashes = '#'.repeat(level);
+      const content = contentToMarkdown(block.content);
       return `${hashes} ${content}`;
     }
-    
+
     case 'paragraph': {
-      // Empty paragraphs become blank lines
-      return content || '';
+      return contentToMarkdown(block.content) || '';
     }
-    
+
+    case 'quote': {
+      const content = contentToMarkdown(block.content);
+      return `> ${content}`;
+    }
+
     case 'bulletListItem': {
-      return `- ${content}`;
+      return `- ${contentToMarkdown(block.content)}`;
     }
-    
+
     case 'numberedListItem': {
-      // Note: We lose the actual number, defaulting to 1.
-      // Could be enhanced to track list numbering
-      return `1. ${content}`;
+      return `1. ${contentToMarkdown(block.content)}`;
     }
-    
+
     case 'checkListItem': {
       const checked = block.props.checked ? 'x' : ' ';
-      return `- [${checked}] ${content}`;
+      return `- [${checked}] ${contentToMarkdown(block.content)}`;
     }
-    
+
     case 'codeBlock': {
       const language = block.props.language || '';
-      const code = block.content.map(c => c.text).join('');
+      const code = Array.isArray(block.content) ? block.content.map(c => c.text).join('') : '';
       return `\`\`\`${language}\n${code}\n\`\`\``;
     }
-    
+
+    case 'divider': {
+      return '---';
+    }
+
+    case 'youtubeVideo': {
+      return `@youtube[${block.props.videoUrl}]`;
+    }
+
+    case 'quiz': {
+      return `@quiz[${block.props.topic}]${block.props.quizzesData}`;
+    }
+
+    case 'table': {
+      if (!block.content || !block.content.rows) return null;
+      
+      const rows = block.content.rows;
+      const tableLines: string[] = [];
+
+      rows.forEach((row: any, idx: number) => {
+        const cells = row.cells.map((cell: any) => {
+          return contentToMarkdown(cell.content);
+        });
+        tableLines.push(`| ${cells.join(' | ')} |`);
+
+        // Add separator after first row
+        if (idx === 0) {
+          const separator = cells.map(() => '---').join(' | ');
+          tableLines.push(`| ${separator} |`);
+        }
+      });
+
+      return tableLines.join('\n');
+    }
+
     default: {
-      // Unknown block types -> treat as paragraph
-      return content || '';
+      return contentToMarkdown(block.content || []) || '';
     }
   }
 }
 
-function contentToMarkdown(content: TextContent[]): string {
-  if (!content || content.length === 0) {
-    return '';
-  }
-  
+function contentToMarkdown(content: any[]): string {
+  if (!content || content.length === 0) return '';
+
   return content.map(segment => {
-    let text = segment.text;
-    const styles = segment.styles || {};
-    
-    // Apply styles in order: code > bold > italic
-    // This prevents nested formatting issues
-    
-    if (styles.code) {
-      return `\`${text}\``;
+    // Handle math inline
+    if (segment.type === 'math') {
+      return `$${segment.props.latex}$`;
     }
-    
-    if (styles.bold && styles.italic) {
-      return `***${text}***`;
+
+    // Handle text with styles
+    if (segment.type === 'text') {
+      let text = segment.text || '';
+      const styles = segment.styles || {};
+
+      if (styles.code) return `\`${text}\``;
+      if (styles.strike) text = `~~${text}~~`;
+      if (styles.bold && styles.italic) return `***${text}***`;
+      if (styles.bold) return `**${text}**`;
+      if (styles.italic) return `*${text}*`;
+
+      return text;
     }
-    
-    if (styles.bold) {
-      return `**${text}**`;
-    }
-    
-    if (styles.italic) {
-      return `*${text}*`;
-    }
-    
-    return text;
+
+    return '';
   }).join('');
 }
 
-/**
- * Example usage:
- * 
- * // MARKDOWN TO BLOCKNOTE
- * const markdown = `# Introduction to React
- * 
- * React is a **JavaScript library** for building *user interfaces*.
- * 
- * ## Key Features
- * 
- * - Component-based architecture
- * - Virtual DOM
- * - Declarative syntax
- * 
- * ### Code Example
- * 
- * \`\`\`javascript
- * function Welcome() {
- *   return <h1>Hello, World!</h1>;
- * }
- * \`\`\`
- * 
- * You can use inline \`code\` like this.
- * 
- * - [ ] Learn React basics
- * - [x] Read documentation
- * `;
- * 
- * const blockNoteJSON = markdownToBlockNote(markdown);
- * console.log(blockNoteJSON); // Valid BlockNote JSON
- * 
- * // BLOCKNOTE TO MARKDOWN (reverse)
- * const backToMarkdown = blockNoteToMarkdown(blockNoteJSON);
- * console.log(backToMarkdown); // Original markdown
- * 
- * // ROUND-TRIP TEST
- * const isEqual = markdown.trim() === backToMarkdown.trim();
- * console.log('Round-trip successful:', isEqual);
- */
+// Utility functions remain the same
+export function isValidBlockNoteJSON(json: string): boolean {
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) return false;
+    return parsed.every((block: any) =>
+      block.id &&
+      block.type &&
+      block.props &&
+      Array.isArray(block.children)
+    );
+  } catch {
+    return false;
+  }
+}
 
-/**
- * Utility: Convert BlockNote to plain text (no formatting)
- * Useful for search, previews, or character counts
- */
 export function blockNoteToPlainText(blockNoteJSON: string): string {
   try {
     const blocks: BlockNoteBlock[] = JSON.parse(blockNoteJSON);
-    
     const texts = blocks.map(block => {
-      return block.content
-        .map(c => c.text)
-        .join('')
-        .trim();
+      if (Array.isArray(block.content)) {
+        return block.content
+          .filter(c => c.type === 'text')
+          .map(c => c.text)
+          .join('')
+          .trim();
+      }
+      return '';
     }).filter(Boolean);
-    
     return texts.join(' ');
   } catch {
     return '';
   }
 }
 
-/**
- * Utility: Get word count from BlockNote content
- */
 export function getBlockNoteWordCount(blockNoteJSON: string): number {
   const plainText = blockNoteToPlainText(blockNoteJSON);
   if (!plainText) return 0;
-  
   return plainText.split(/\s+/).filter(Boolean).length;
 }
 
-/**
- * Utility: Get character count from BlockNote content
- */
-export function getBlockNoteCharCount(blockNoteJSON: string): number {
-  const plainText = blockNoteToPlainText(blockNoteJSON);
-  return plainText.length;
-}
-
-/**
- * Utility: Extract headings from BlockNote content
- * Useful for generating table of contents
- */
 export function extractHeadings(blockNoteJSON: string): Array<{ level: number; text: string }> {
   try {
     const blocks: BlockNoteBlock[] = JSON.parse(blockNoteJSON);
-    
     return blocks
       .filter(block => block.type === 'heading')
       .map(block => ({
         level: block.props.level || 1,
-        text: block.content.map(c => c.text).join(''),
+        text: Array.isArray(block.content) ? block.content.map(c => c.text).join('') : '',
       }));
   } catch {
     return [];

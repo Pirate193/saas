@@ -85,6 +85,7 @@ import {
 } from "@/components/ai/tools";
 import { UIMessage } from "ai";
 import { ChatHistoryPopover } from "./chathistorymodal";
+import { Button } from "../ui/button";
 
 const suggestions: { key: string; value: string }[] = [
   { key: nanoid(), value: "Help with homework" },
@@ -295,456 +296,422 @@ export default function AiModal() {
   };
 
   return (
-    <div>
-      {/* backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50  z-40 animate-fadeIn"
-          onClick={() => onClose()}
-        />
-      )}
-      <div
-        className={`fixed bottom-0 right-0 w-full md:w-[480px] md:top-8 md:right-8 md:bottom-8 bg-background md:rounded-2xl shadow-2xl z-50 transition-all duration-300  ${
-          isOpen
-            ? "translate-y-0 opacity-100"
-            : "translate-y-full md:translate-y-[120%] opacity-0 pointer-events-none"
-        }`}
-        style={{ maxHeight: "100vh" }}
-      >
-        {/* header  */}
-        <div>
-          <ChatHistoryPopover />
-        </div>
-        {/* content  */}
-        <div
-        className="flex flex-col p-4 "
-        style={{ height: "calc(100vh - 90px)" }}
-        >
-          <Conversation>
-            <ConversationContent className="">
+    <div className="flex flex-col h-full p-2 ">
+      {/* header  */}
+      <div className="flex items-center justify-between">
+        <ChatHistoryPopover />
+        <Button variant="ghost" onClick={() => onClose()}>
+          <X className="size-4" />
+        </Button>
+      </div>
+      {/* content  */}
+      <Conversation>
+        <ConversationContent className="">
           {messages.length === 0 ? (
             <ConversationEmptyState
               icon={<MessageSquare className="size-12" />}
               title="Start a conversation"
               description="Type a message below to begin chatting "
             />
-          ) : (messages.map((message) => (
-                <div key={message.id}>
-                  {message.role === "assistant" &&
-                    message.parts.filter((part) => part.type === "source-url")
-                      .length > 0 && (
-                      <Sources>
-                        <SourcesTrigger
-                          count={
-                            message.parts.filter(
-                              (part) => part.type === "source-url"
-                            ).length
-                          }
-                        />
-                        {message.parts
-                          .filter((part) => part.type === "source-url")
-                          .map((part, i) => (
-                            <SourcesContent key={`${message.id}-${i}`}>
-                              <Source
-                                key={`${message.id}-${i}`}
-                                href={part.url}
-                                title={part.url}
-                              />
-                            </SourcesContent>
-                          ))}
-                      </Sources>
-                    )}
-                  {message.parts.map((part, i) => {
-                    if (part.type === "text") {
-                      return (
-                        <Fragment key={`${message.id}-${i}`}>
-                          <Message from={message.role}>
-                            <MessageContent>
-                              <Response isAnimating={status === "streaming"}>
-                                {part.text}
-                              </Response>
-                            </MessageContent>
-                          </Message>
-                          {message.role === "assistant" && (
-                            <Actions className="mt-1">
-                              {i === messages.length - 1 && (
-                                <Action
-                                  onClick={() => regenerate()}
-                                  label="Retry"
-                                >
-                                  <RefreshCcwIcon className="size-3" />
-                                </Action>
-                              )}
+          ) : (
+            messages.map((message) => (
+              <div key={message.id}>
+                {message.role === "assistant" &&
+                  message.parts.filter((part) => part.type === "source-url")
+                    .length > 0 && (
+                    <Sources>
+                      <SourcesTrigger
+                        count={
+                          message.parts.filter(
+                            (part) => part.type === "source-url"
+                          ).length
+                        }
+                      />
+                      {message.parts
+                        .filter((part) => part.type === "source-url")
+                        .map((part, i) => (
+                          <SourcesContent key={`${message.id}-${i}`}>
+                            <Source
+                              key={`${message.id}-${i}`}
+                              href={part.url}
+                              title={part.url}
+                            />
+                          </SourcesContent>
+                        ))}
+                    </Sources>
+                  )}
+                {message.parts.map((part, i) => {
+                  if (part.type === "text") {
+                    return (
+                      <Fragment key={`${message.id}-${i}`}>
+                        <Message from={message.role}>
+                          <MessageContent>
+                            <Response isAnimating={status === "streaming"}>
+                              {part.text}
+                            </Response>
+                          </MessageContent>
+                        </Message>
+                        {message.role === "assistant" && (
+                          <Actions className="mt-1">
+                            {i === messages.length - 1 && (
                               <Action
-                                onClick={() =>
-                                  navigator.clipboard.writeText(part.text)
-                                }
-                                label="Copy"
+                                onClick={() => regenerate()}
+                                label="Retry"
                               >
-                                <CopyIcon className="size-3" />
+                                <RefreshCcwIcon className="size-3" />
                               </Action>
-                            </Actions>
+                            )}
+                            <Action
+                              onClick={() =>
+                                navigator.clipboard.writeText(part.text)
+                              }
+                              label="Copy"
+                            >
+                              <CopyIcon className="size-3" />
+                            </Action>
+                          </Actions>
+                        )}
+                      </Fragment>
+                    );
+                  }
+                  if (part.type === "reasoning") {
+                    return (
+                      <Reasoning
+                        key={`${message.id}-${i}`}
+                        className="w-full"
+                        isStreaming={
+                          status === "streaming" &&
+                          i === message.parts.length - 1 &&
+                          message.id === messages.at(-1)?.id
+                        }
+                      >
+                        <ReasoningTrigger />
+                        <ReasoningContent>{part.text}</ReasoningContent>
+                      </Reasoning>
+                    );
+                  }
+                  if (part.type === "tool-createNote") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-createNote"
+                          title="Creating Note"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <CreateNote output={part.output} />
                           )}
-                        </Fragment>
-                      );
-                    }
-                    if (part.type === "reasoning") {
-                      return (
-                        <Reasoning
-                          key={`${message.id}-${i}`}
-                          className="w-full"
-                          isStreaming={
-                            status === "streaming" &&
-                            i === message.parts.length - 1 &&
-                            message.id === messages.at(-1)?.id
-                          }
-                        >
-                          <ReasoningTrigger />
-                          <ReasoningContent>{part.text}</ReasoningContent>
-                        </Reasoning>
-                      );
-                    }
-                    if (part.type === "tool-createNote") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-createNote"
-                            title="Creating Note"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <CreateNote output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
 
-                    if (part.type === "tool-updateNote") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-updateNote"
-                            title="Updating Note"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <UpdateNote output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
+                  if (part.type === "tool-updateNote") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-updateNote"
+                          title="Updating Note"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <UpdateNote output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
 
-                    if (part.type === "tool-generateFlashcards") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-generateFlashcards"
-                            title="Creating Flashcard"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <CreateFlashcard output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
+                  if (part.type === "tool-generateFlashcards") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-generateFlashcards"
+                          title="Creating Flashcard"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <CreateFlashcard output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
 
-                    if (part.type === "tool-getfolderitems") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-getfolderitems"
-                            title="Analyzing Folder"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <GetFolderItems output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
+                  if (part.type === "tool-getfolderitems") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getfolderitems"
+                          title="Analyzing Folder"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <GetFolderItems output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
 
-                    if (part.type === "tool-getUserFlashcards") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-getUserFlashcards"
-                            title="Fetching Flashcards"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <GetUserFlashcards output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
+                  if (part.type === "tool-getUserFlashcards") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getUserFlashcards"
+                          title="Fetching Flashcards"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <GetUserFlashcards output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
 
-                    if (part.type === "tool-getFlashcard") {
-                      return (
-                        <Tool key={`${message.id}-${i}`}>
-                          <ToolHeader
-                            state={part.state}
-                            type="tool-getFlashcard"
-                            title="Analyzing Flashcard"
-                          />
-                          <ToolContent>
-                            {part.state === "output-available" && (
-                              <GetFlashcard output={part.output} />
-                            )}
-                          </ToolContent>
-                        </Tool>
-                      );
-                    }
+                  if (part.type === "tool-getFlashcard") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getFlashcard"
+                          title="Analyzing Flashcard"
+                        />
+                        <ToolContent>
+                          {part.state === "output-available" && (
+                            <GetFlashcard output={part.output} />
+                          )}
+                        </ToolContent>
+                      </Tool>
+                    );
+                  }
 
-                    return null;
-                  })}
-                </div>
-              )))}
-              {status === "submitted" && <Shimmer>Thinking...</Shimmer>}
-            </ConversationContent>
-            <ConversationScrollButton />
-          </Conversation>
-          <PromptInput
-            onSubmit={handleSubmit}
-            className="mt-4"
-            globalDrop
-            multiple
+                  return null;
+                })}
+              </div>
+            ))
+          )}
+          {status === "submitted" && <Shimmer>Thinking...</Shimmer>}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+      <PromptInput onSubmit={handleSubmit} className="mt-4" globalDrop multiple>
+        <PromptInputHeader>
+          <PromptInputAttachments>
+            {(attachment) => <PromptInputAttachment data={attachment} />}
+          </PromptInputAttachments>
+
+          {/* Display the selected context as a simple tag */}
+          <PromptInputHoverCard
+            open={popoverOpen}
+            onOpenChange={setPopoverOpen}
           >
-            <PromptInputHeader>
-              <PromptInputAttachments>
-                {(attachment) => <PromptInputAttachment data={attachment} />}
-              </PromptInputAttachments>
-
-              {/* Display the selected context as a simple tag */}
-              <PromptInputHoverCard
-                open={popoverOpen}
-                onOpenChange={setPopoverOpen}
+            <PromptInputHoverCardTrigger>
+              <PromptInputButton
+                className="h-8!"
+                size="icon-sm"
+                variant="outline"
               >
-                <PromptInputHoverCardTrigger>
-                  <PromptInputButton
-                    className="h-8!"
-                    size="icon-sm"
-                    variant="outline"
-                  >
-                    <AtSignIcon className="text-muted-foreground" size={12} />
-                  </PromptInputButton>
-                </PromptInputHoverCardTrigger>
-                <PromptInputHoverCardContent className="w-[400px] p-0">
-                  <PromptInputCommand>
-                    <PromptInputCommandInput
-                      className="border-none focus-visible:ring-0"
-                      placeholder="Add folders or notes..."
-                      value={search}
-                      onValueChange={setSearch}
-                    />
-                    <PromptInputCommandList>
-                      <PromptInputCommandEmpty className="p-3 text-muted-foreground text-sm">
-                        {allFolders === undefined || allNotes === undefined
-                          ? "Loading..."
-                          : "No items found."}
-                      </PromptInputCommandEmpty>
+                <AtSignIcon className="text-muted-foreground" size={12} />
+              </PromptInputButton>
+            </PromptInputHoverCardTrigger>
+            <PromptInputHoverCardContent className="w-[400px] p-0">
+              <PromptInputCommand>
+                <PromptInputCommandInput
+                  className="border-none focus-visible:ring-0"
+                  placeholder="Add folders or notes..."
+                  value={search}
+                  onValueChange={setSearch}
+                />
+                <PromptInputCommandList>
+                  <PromptInputCommandEmpty className="p-3 text-muted-foreground text-sm">
+                    {allFolders === undefined || allNotes === undefined
+                      ? "Loading..."
+                      : "No items found."}
+                  </PromptInputCommandEmpty>
 
-                      {/* Added Context (from arrays) */}
-                      {(contextFolder.length > 0 || contextNote.length > 0) && (
-                        <PromptInputCommandGroup heading="Added">
-                          {contextFolder.map((folder) => (
-                            <PromptInputCommandItem
-                              key={folder._id}
-                              value={folder._id}
-                              onSelect={() => {
-                                setContextFolder((prev) =>
-                                  prev.filter((f) => f._id !== folder._id)
-                                );
-                                setPopoverOpen(false);
-                              }}
-                            >
-                              <Folder />
-                              <span>{folder.name}</span>
-                              <span className="ml-auto">
-                                <X className="size-4" />
-                              </span>
-                            </PromptInputCommandItem>
-                          ))}
-                          {contextNote.map((note) => (
-                            <PromptInputCommandItem
-                              key={note._id}
-                              value={note._id}
-                              onSelect={() => {
-                                setContextNote((prev) =>
-                                  prev.filter((n) => n._id !== note._id)
-                                );
-                                setPopoverOpen(false);
-                              }}
-                            >
-                              <Notebook />
-                              <span>{note.title}</span>
-                              <span className="ml-auto">
-                                <X className="size-4" />
-                              </span>
-                            </PromptInputCommandItem>
-                          ))}
-                        </PromptInputCommandGroup>
-                      )}
+                  {/* Added Context (from arrays) */}
+                  {(contextFolder.length > 0 || contextNote.length > 0) && (
+                    <PromptInputCommandGroup heading="Added">
+                      {contextFolder.map((folder) => (
+                        <PromptInputCommandItem
+                          key={folder._id}
+                          value={folder._id}
+                          onSelect={() => {
+                            setContextFolder((prev) =>
+                              prev.filter((f) => f._id !== folder._id)
+                            );
+                            setPopoverOpen(false);
+                          }}
+                        >
+                          <Folder />
+                          <span>{folder.name}</span>
+                          <span className="ml-auto">
+                            <X className="size-4" />
+                          </span>
+                        </PromptInputCommandItem>
+                      ))}
+                      {contextNote.map((note) => (
+                        <PromptInputCommandItem
+                          key={note._id}
+                          value={note._id}
+                          onSelect={() => {
+                            setContextNote((prev) =>
+                              prev.filter((n) => n._id !== note._id)
+                            );
+                            setPopoverOpen(false);
+                          }}
+                        >
+                          <Notebook />
+                          <span>{note.title}</span>
+                          <span className="ml-auto">
+                            <X className="size-4" />
+                          </span>
+                        </PromptInputCommandItem>
+                      ))}
+                    </PromptInputCommandGroup>
+                  )}
 
-                      {/* Folders (adds to array) */}
-                      <PromptInputCommandGroup heading="Folders">
-                        {filteredFolders?.map((folder) => (
-                          <PromptInputCommandItem
-                            key={folder._id}
-                            value={folder._id}
-                            onSelect={() => {
-                              setContextFolder((prev) => [...prev, folder]);
-                              setPopoverOpen(false);
-                              setSearch("");
-                            }}
-                          >
-                            <Folder className="text-primary" />
-                            <span className="font-medium text-sm">
-                              {folder.name}
-                            </span>
-                          </PromptInputCommandItem>
-                        ))}
-                      </PromptInputCommandGroup>
+                  {/* Folders (adds to array) */}
+                  <PromptInputCommandGroup heading="Folders">
+                    {filteredFolders?.map((folder) => (
+                      <PromptInputCommandItem
+                        key={folder._id}
+                        value={folder._id}
+                        onSelect={() => {
+                          setContextFolder((prev) => [...prev, folder]);
+                          setPopoverOpen(false);
+                          setSearch("");
+                        }}
+                      >
+                        <Folder className="text-primary" />
+                        <span className="font-medium text-sm">
+                          {folder.name}
+                        </span>
+                      </PromptInputCommandItem>
+                    ))}
+                  </PromptInputCommandGroup>
 
-                      {/* Notes (adds to array) */}
-                      <PromptInputCommandGroup heading="Notes">
-                        {filteredNotes?.map((note) => (
-                          <PromptInputCommandItem
-                            key={note._id}
-                            value={note._id}
-                            onSelect={() => {
-                              setContextNote((prev) => [...prev, note]);
-                              setPopoverOpen(false);
-                              setSearch("");
-                            }}
-                          >
-                            <Notebook className="text-primary" />
-                            <span className="font-medium text-sm">
-                              {note.title}
-                            </span>
-                          </PromptInputCommandItem>
-                        ))}
-                      </PromptInputCommandGroup>
-                    </PromptInputCommandList>
-                  </PromptInputCommand>
-                </PromptInputHoverCardContent>
-              </PromptInputHoverCard>
+                  {/* Notes (adds to array) */}
+                  <PromptInputCommandGroup heading="Notes">
+                    {filteredNotes?.map((note) => (
+                      <PromptInputCommandItem
+                        key={note._id}
+                        value={note._id}
+                        onSelect={() => {
+                          setContextNote((prev) => [...prev, note]);
+                          setPopoverOpen(false);
+                          setSearch("");
+                        }}
+                      >
+                        <Notebook className="text-primary" />
+                        <span className="font-medium text-sm">
+                          {note.title}
+                        </span>
+                      </PromptInputCommandItem>
+                    ))}
+                  </PromptInputCommandGroup>
+                </PromptInputCommandList>
+              </PromptInputCommand>
+            </PromptInputHoverCardContent>
+          </PromptInputHoverCard>
 
-              {/* +++ 3. "X" ON TAGS UI +++ */}
-              {/* Tags for selected folders */}
-              {contextFolder.map((folder) => (
-                <PromptInputButton
-                  key={folder._id}
-                  size="sm"
-                  variant="outline"
-                  className="group max-w-[150px]"
-                >
-                  <Folder size={12} className="mr-1.5 shrink-0" />
-                  <span className="truncate">{folder.name}</span>
-                  <span
-      role="button"
-                    className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Stop popover from opening
-                      setContextFolder((prev) =>
-                        prev.filter((f) => f._id !== folder._id)
-                      );
-                    }}
-                  >
-                    <X size={12} />
-                  </span>
-                </PromptInputButton>
-              ))}
-              {/* Tags for selected notes */}
-              {contextNote.map((note) => (
-                <PromptInputButton
-                  key={note._id}
-                  size="sm"
-                  variant="outline"
-                  className="group max-w-[150px]"
-                >
-                  <Notebook size={12} className="mr-1.5 shrink-0" />
-                  <span className="truncate">{note.title}</span>
-                  <span
-                 role="button"
-                    className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
-                    onClick={(e) => {
-                      e.stopPropagation(); // Stop popover from opening
-                      setContextNote((prev) =>
-                        prev.filter((n) => n._id !== note._id)
-                      );
-                    }}
-                  >
-                    <X size={12} />
-                  </span>
-                </PromptInputButton>
-              ))}
-            </PromptInputHeader>
-            <PromptInputBody>
-              <PromptInputTextarea
-                onChange={(e) => setInput(e.target.value)}
-                value={input}
-              />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools>
-                <PromptInputActionMenu>
-                  <PromptInputActionMenuTrigger />
-                  <PromptInputActionMenuContent>
-                    <PromptInputActionAddAttachments />
-                  </PromptInputActionMenuContent>
-                </PromptInputActionMenu>
-                <PromptInputButton
-                  variant={webSearch ? "default" : "ghost"}
-                  onClick={() => setWebSearch(!webSearch)}
-                >
-                  <GlobeIcon size={16} />
-                  <span>Search</span>
-                </PromptInputButton>
-                {/* study mode */}
-                <PromptInputButton
-                  variant={studyMode ? "default" : "ghost"}
-                  onClick={() => setStudyMode(!studyMode)}
-                >
-                  <BookOpenIcon size={16} />
-                  <span>Study</span>
-                </PromptInputButton>
-                <PromptInputButton
-                  variant={thinking ? "default" : "ghost"}
-                  onClick={() => setThinking(!thinking)}
-                >
-                  <BrainIcon size={16} />
-                  <span>Thinking</span>
-                </PromptInputButton>
-              </PromptInputTools>
-              <PromptInputSubmit disabled={!input && !status} status={status} />
-            </PromptInputFooter>
-          </PromptInput>
-        </div>
-      </div>
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-      `}</style>
+          {/* +++ 3. "X" ON TAGS UI +++ */}
+          {/* Tags for selected folders */}
+          {contextFolder.map((folder) => (
+            <PromptInputButton
+              key={folder._id}
+              size="sm"
+              variant="outline"
+              className="group max-w-[150px]"
+            >
+              <Folder size={12} className="mr-1.5 shrink-0" />
+              <span className="truncate">{folder.name}</span>
+              <span
+                role="button"
+                className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
+                onClick={(e) => {
+                  e.stopPropagation(); // Stop popover from opening
+                  setContextFolder((prev) =>
+                    prev.filter((f) => f._id !== folder._id)
+                  );
+                }}
+              >
+                <X size={12} />
+              </span>
+            </PromptInputButton>
+          ))}
+          {/* Tags for selected notes */}
+          {contextNote.map((note) => (
+            <PromptInputButton
+              key={note._id}
+              size="sm"
+              variant="outline"
+              className="group max-w-[150px]"
+            >
+              <Notebook size={12} className="mr-1.5 shrink-0" />
+              <span className="truncate">{note.title}</span>
+              <span
+                role="button"
+                className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
+                onClick={(e) => {
+                  e.stopPropagation(); // Stop popover from opening
+                  setContextNote((prev) =>
+                    prev.filter((n) => n._id !== note._id)
+                  );
+                }}
+              >
+                <X size={12} />
+              </span>
+            </PromptInputButton>
+          ))}
+        </PromptInputHeader>
+        <PromptInputBody>
+          <PromptInputTextarea
+            onChange={(e) => setInput(e.target.value)}
+            value={input}
+          />
+        </PromptInputBody>
+        <PromptInputFooter>
+          <PromptInputTools>
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            <PromptInputButton
+              variant={webSearch ? "default" : "ghost"}
+              onClick={() => setWebSearch(!webSearch)}
+            >
+              <GlobeIcon size={16} />
+              <span>Search</span>
+            </PromptInputButton>
+            {/* study mode */}
+            <PromptInputButton
+              variant={studyMode ? "default" : "ghost"}
+              onClick={() => setStudyMode(!studyMode)}
+            >
+              <BookOpenIcon size={16} />
+              <span>Study</span>
+            </PromptInputButton>
+            <PromptInputButton
+              variant={thinking ? "default" : "ghost"}
+              onClick={() => setThinking(!thinking)}
+            >
+              <BrainIcon size={16} />
+              <span>Thinking</span>
+            </PromptInputButton>
+          </PromptInputTools>
+          <PromptInputSubmit disabled={!input && !status} status={status} />
+        </PromptInputFooter>
+      </PromptInput>
     </div>
   );
 }

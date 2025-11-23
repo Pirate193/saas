@@ -1,5 +1,9 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
+import { agent } from "./ai";
+import { generateText } from "ai";
+import { google } from "@ai-sdk/google";
+import { api } from "./_generated/api";
 
 export const createNewchat = mutation({
     args:{
@@ -104,5 +108,34 @@ export const addmessage = mutation({
             parts:args.parts
         })
         return messageId;
+    }
+})
+
+export const generateChatTitle = action({
+    args:{
+        chatId:v.id('chats'),
+        userPrompt:v.string(),
+    },
+    handler: async(ctx ,args)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+            throw new Error("Not authenticated");
+        }
+
+        const { text } = await generateText({
+      model: google("gemini-2.5-flash"), // Use a fast/cheap model for this
+      prompt: `
+        Summarize the following user prompt into a very short, concise chat title (max 5 words).
+        Do not use quotes.
+        User Prompt: "${args.userPrompt}"
+      `,
+    });
+
+    const cleanTitle = text.trim().replace(/^"|"$/g, '');
+
+    await ctx.runMutation(api.chat.updateChat,{
+        chatId:args.chatId,
+        title:cleanTitle
+    })
     }
 })
