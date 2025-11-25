@@ -139,12 +139,12 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
 
   // Filtered data for the command list
   const filteredFolders = allFolders?.filter(
-    (folder) =>
+    (folder: any) =>
       !contextFolder.find((cf) => cf._id === folder._id) && // Hide tagged
       folder.name.toLowerCase().includes(search.toLowerCase())
   );
   const filteredNotes = allNotes?.filter(
-    (note) =>
+    (note: any) =>
       !contextNote.find((cn) => cn._id === note._id) && // Hide tagged
       note.title.toLowerCase().includes(search.toLowerCase())
   );
@@ -201,7 +201,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
     // 2. Have we not initialized?
     // 3. (THE FIX) Is there NOT a pending message waiting to be sent?
     if (initialMessages && !hasInitialized.current && !pendingMessage) {
-      const transformedMessages = initialMessages.map((msg) => ({
+      const transformedMessages = initialMessages.map((msg: any) => ({
         id: msg._id,
         role: msg.role as "user" | "assistant",
         content: msg.content,
@@ -641,7 +641,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
               <Folder size={12} className="mr-1.5 shrink-0" />
               <span className="truncate">{folder.name}</span>
               <span
-              role="button"
+                role="button"
                 className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                 onClick={(e) => {
                   e.stopPropagation(); // Stop popover from opening
@@ -665,7 +665,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
               <Notebook size={12} className="mr-1.5 shrink-0" />
               <span className="truncate">{note.title}</span>
               <span
-              role="button"
+                role="button"
                 className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                 onClick={(e) => {
                   e.stopPropagation(); // Stop popover from opening

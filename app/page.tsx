@@ -19,7 +19,7 @@ import FooterSection from "@/components/landingpage/footer";
 
 export default function Home() {
   return (
-    <main className="flex flex-col min-h-screen bg-black text-white overflow-hidden">
+    <main className="flex flex-col min-h-screen overflow-hidden  ">
       <HeroHeader />
       <HeroSection />
       <Features />

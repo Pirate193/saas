@@ -34,6 +34,13 @@ export const uploadFile = mutation({
         if(!user){
             throw new Error("Not authenticated");
         }
+
+        // Check if user can upload files
+        const canUpload = await ctx.runQuery(api.subscriptions.canUploadFile);
+        if (!canUpload.allowed) {
+            throw new Error(`File upload limit reached. ${canUpload.reason}. You have uploaded ${canUpload.filesUploaded}/${canUpload.filesLimit} files.`);
+        }
+
         const fileId = await ctx.db.insert("files",{
             userId:user.subject,
             folderId:args.folderId,
@@ -42,6 +49,9 @@ export const uploadFile = mutation({
             storageId:args.storageId
         })
         
+        // Track file upload
+        await ctx.runMutation(api.subscriptions.trackFileUpload);
+
         const fileurl = await ctx.storage.getUrl(args.storageId)
         if(!fileurl){
             throw new Error("File not found");

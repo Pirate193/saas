@@ -9,11 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +34,7 @@ import { ModeToggle } from "../themetoggle";
 
 // 2. IMPORT your new AccountModal
 import { AccountModal } from "./account-modal";
+import SubscriptionDialog from "../subscription/subscription-dialog";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -45,9 +42,10 @@ export function NavUser() {
   // 3. REMOVE openUserProfile from useClerk()
   const { signOut } = useClerk();
   const router = useRouter();
-  
+
   // 4. ADD state to control your modal
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [SubscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
 
   // Loading state
   if (!isLoaded) {
@@ -76,7 +74,8 @@ export function NavUser() {
   };
 
   // Get full name
-  const fullName = user.fullName || user.emailAddresses[0]?.emailAddress || "User";
+  const fullName =
+    user.fullName || user.emailAddresses[0]?.emailAddress || "User";
   const email = user.emailAddresses[0]?.emailAddress || "";
 
   const handleSignOut = async () => {
@@ -140,14 +139,16 @@ export function NavUser() {
 
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} >
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                   <ModeToggle />
-                 </DropdownMenuItem>
+                </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               {/* Upgrade to Pro */}
               <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => console.log('open upgrade modal')}>
+                <DropdownMenuItem
+                  onClick={() => setSubscriptionDialogOpen(true)}
+                >
                   <Sparkles className="mr-2 h-4 w-4" />
                   Upgrade to Pro
                 </DropdownMenuItem>
@@ -162,11 +163,15 @@ export function NavUser() {
                   <BadgeCheck className="mr-2 h-4 w-4" />
                   Account
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => console.log('open billing modal')}>
+                <DropdownMenuItem
+                  onClick={() => console.log("open billing modal")}
+                >
                   <CreditCard className="mr-2 h-4 w-4" />
                   Billing
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => console.log('open notifications modal')}>
+                <DropdownMenuItem
+                  onClick={() => console.log("open notifications modal")}
+                >
                   <Bell className="mr-2 h-4 w-4" />
                   Notifications
                 </DropdownMenuItem>
@@ -191,6 +196,10 @@ export function NavUser() {
       <AccountModal
         isOpen={isAccountModalOpen}
         onOpenChange={setIsAccountModalOpen}
+      />
+      <SubscriptionDialog
+        isOpen={SubscriptionDialogOpen}
+        onOpenChange={setSubscriptionDialogOpen}
       />
     </>
   );

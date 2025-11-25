@@ -136,12 +136,12 @@ const Chat = ({ chatId }: Props) => {
 
   // Filtered data for the command list
   const filteredFolders = allFolders?.filter(
-    (folder) =>
+    (folder: any) =>
       !contextFolder.find((cf) => cf._id === folder._id) && // Hide tagged
       folder.name.toLowerCase().includes(search.toLowerCase())
   );
   const filteredNotes = allNotes?.filter(
-    (note) =>
+    (note: any) =>
       !contextNote.find((cn) => cn._id === note._id) && // Hide tagged
       note.title.toLowerCase().includes(search.toLowerCase())
   );
@@ -178,7 +178,7 @@ const Chat = ({ chatId }: Props) => {
       !hasInitialized.current
     ) {
       hasInitialized.current = true;
-      const transformedMessages = initialMessages.map((msg) => ({
+      const transformedMessages = initialMessages.map((msg: any) => ({
         id: msg._id,
         role: msg.role as "user" | "assistant",
         content: msg.content,
@@ -564,7 +564,7 @@ const Chat = ({ chatId }: Props) => {
 
                     {/* Folders (adds to array) */}
                     <PromptInputCommandGroup heading="Folders">
-                      {filteredFolders?.map((folder) => (
+                      {filteredFolders?.map((folder: any) => (
                         <PromptInputCommandItem
                           key={folder._id}
                           value={folder._id}
@@ -584,7 +584,7 @@ const Chat = ({ chatId }: Props) => {
 
                     {/* Notes (adds to array) */}
                     <PromptInputCommandGroup heading="Notes">
-                      {filteredNotes?.map((note) => (
+                      {filteredNotes?.map((note: any) => (
                         <PromptInputCommandItem
                           key={note._id}
                           value={note._id}

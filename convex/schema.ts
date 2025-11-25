@@ -127,6 +127,31 @@ export default defineSchema({
    })
    .index("by_chat",["chatId"]),
 
-   
+   // Subscriptions table
+   subscriptions:defineTable({
+     userId:v.string(),
+     tier:v.union(v.literal("free"),v.literal("pro")),
+     polarSubscriptionId:v.optional(v.string()),
+     polarCustomerId:v.optional(v.string()),
+     polarProductId:v.optional(v.string()),
+     status:v.optional(v.string()), // active, canceled, past_due, etc.
+     currentPeriodEnd:v.optional(v.number()),
+     updatedAt:v.number(),
+   })
+   .index("by_user",["userId"])
+   .index("by_polar_subscription",["polarSubscriptionId"]),
+
+   // Usage tracking table
+   usageTracking:defineTable({
+     userId:v.string(),
+     // Daily limits (reset at midnight UTC)
+     dailyAiTokens:v.number(), // tokens used today
+     dailyFlashcardsGenerated:v.number(), // flashcards created today
+     lastResetDate:v.string(), // date in YYYY-MM-DD format for daily reset
+     // Total limits
+     totalFilesUploaded:v.number(), // total PDF uploads
+     updatedAt:v.number(),
+   })
+   .index("by_user",["userId"]),
 
 })
