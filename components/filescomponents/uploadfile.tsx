@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import extractTextFromPDF from "@/lib/pdfparse";
+import { UsageLimitModal } from "../subscription/usage-limit-modal";
+import { Badge } from "../ui/badge";
 
 interface Props {
   open: boolean;
@@ -43,8 +45,12 @@ const Uploadfile = ({ open, onclose, folderId }: Props) => {
   const [files, setFiles] = useState<FileUplaodStatus[]>([]);
   const [isUplaoding, setIsUplaoding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadStatus = useQuery(api.subscriptions.canUploadFile);
+  const tier = useQuery(api.subscriptions.getSubscription);
+  const isfree = tier?.isFree;
 
   const [isloading, setIsloading] = useState(false);
+  const [IslimitModalOpen, setIsLimitModalOpen] = useState(false);
 
   //validate file
   const validateFile = (file: File): string | null => {
@@ -130,7 +136,15 @@ const Uploadfile = ({ open, onclose, folderId }: Props) => {
       );
     } catch (error) {
       console.error("Upload error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Upload failed";
 
+      if (errorMessage.includes("File upload limit reached")) {
+        setIsLimitModalOpen(true); // Trigger the modal
+
+        // stop the "Upload All" loop if one fails
+        setIsUplaoding(false);
+      }
       // Update status to error
       setFiles((prev) =>
         prev.map((f) =>
@@ -138,12 +152,14 @@ const Uploadfile = ({ open, onclose, folderId }: Props) => {
             ? {
                 ...f,
                 status: "error",
-                error: error instanceof Error ? error.message : "Upload failed",
+                error: errorMessage,
               }
             : f
         )
       );
-      toast.error("Upload failed");
+      if (!errorMessage.includes("limit reached")) {
+        toast.error("Upload failed");
+      }
     }
   };
   const handleUploadAll = async () => {
@@ -201,107 +217,115 @@ const Uploadfile = ({ open, onclose, folderId }: Props) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onclose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogTitle>Upload File</DialogTitle>
-        <div className="flex-1 overflow-y-auto space-y-4">
-          {/* Drop Zone */}
-          {files.length === 0 && (
-            <div
-              className={cn(
-                "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
-                isDragOver
-                  ? "border-primary bg-primary/5"
-                  : "border-gray-300 hover:border-gray-400"
-              )}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragleave}
-            >
-              <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <div className="space-y-2">
-                <p className="text-lg font-medium">
-                  Drop files here or click browse
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Supports PDF, Images, Docs, Videos up to 10MB
-                </p>
-                <Button
-                  className="mt-4"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Choose Files
-                </Button>
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  accept="image/*,.pdf,.doc,.docx,.txt,.rtf,.mp4,.avi"
-                  onChange={(e) => handlefileSelect(e.target.files)}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* File List */}
-          {files.length > 0 && (
-            <div className="space-y-2">
-              {files.map((fileStatus, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-3 p-3 border rounded-lg"
-                >
-                  <FileIcon className="h-8 w-8 text-muted-foreground shrink-0" />
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {fileStatus.file.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatFileSize(fileStatus.file.size)}
-                    </p>
-
-                    {fileStatus.status === "error" && (
-                      <p className="text-sm text-destructive">
-                        {fileStatus.error}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Status Icon */}
-                  <div className="shrink-0">
-                    {fileStatus.status === "pending" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveFile(fileStatus.file)}
-                        disabled={isUplaoding}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {fileStatus.status === "uploading" && (
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    )}
-                    {fileStatus.status === "success" && (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    )}
-                    {fileStatus.status === "error" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveFile(fileStatus.file)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+    <>
+      <Dialog open={open} onOpenChange={onclose}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogTitle>
+            Upload File
+            {uploadStatus && isfree && (
+              <Badge variant="outline" className="ml-2">
+                file uploaded :{uploadStatus.filesUploaded} /5
+              </Badge>
+            )}{" "}
+          </DialogTitle>
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Drop Zone */}
+            {files.length === 0 && (
+              <div
+                className={cn(
+                  "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
+                  isDragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-gray-300 hover:border-gray-400"
+                )}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragleave}
+              >
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <div className="space-y-2">
+                  <p className="text-lg font-medium">
+                    Drop files here or click browse
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Supports PDF, Images, Docs, Videos up to 10MB
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Choose Files
+                  </Button>
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.txt,.rtf,.mp4,.avi"
+                    onChange={(e) => handlefileSelect(e.target.files)}
+                  />
                 </div>
-              ))}
+              </div>
+            )}
 
-              {/* Add More Button
+            {/* File List */}
+            {files.length > 0 && (
+              <div className="space-y-2">
+                {files.map((fileStatus, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 border rounded-lg"
+                  >
+                    <FileIcon className="h-8 w-8 text-muted-foreground shrink-0" />
+
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {fileStatus.file.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatFileSize(fileStatus.file.size)}
+                      </p>
+
+                      {fileStatus.status === "error" && (
+                        <p className="text-sm text-destructive">
+                          {fileStatus.error}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Status Icon */}
+                    <div className="shrink-0">
+                      {fileStatus.status === "pending" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveFile(fileStatus.file)}
+                          disabled={isUplaoding}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {fileStatus.status === "uploading" && (
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      )}
+                      {fileStatus.status === "success" && (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      )}
+                      {fileStatus.status === "error" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveFile(fileStatus.file)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add More Button
               <Button
                 variant="outline"
                 className="w-full"
@@ -311,44 +335,50 @@ const Uploadfile = ({ open, onclose, folderId }: Props) => {
                 <Plus className="h-4 w-4 mr-2" />
                 Add More Files
               </Button> */}
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          {files.length > 0 && (
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => onclose(false)}
+                disabled={isUplaoding}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUploadAll} disabled={isUplaoding}>
+                {isUplaoding ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>Upload {files.length} file(s)</>
+                )}
+              </Button>
             </div>
           )}
-        </div>
 
-        {/* Action Buttons */}
-        {files.length > 0 && (
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => onclose(false)}
-              disabled={isUplaoding}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleUploadAll} disabled={isUplaoding}>
-              {isUplaoding ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>Upload {files.length} file(s)</>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {/* Hidden file input */}
-        <Input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          accept="image/*,.pdf,.doc,.docx,.txt,.rtf,.mp4,.avi"
-          onChange={(e) => handlefileSelect(e.target.files)}
-        />
-      </DialogContent>
-    </Dialog>
+          {/* Hidden file input */}
+          <Input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept="image/*,.pdf,.doc,.docx,.txt,.rtf,.mp4,.avi"
+            onChange={(e) => handlefileSelect(e.target.files)}
+          />
+        </DialogContent>
+      </Dialog>
+      <UsageLimitModal
+        isOpen={IslimitModalOpen}
+        onOpenChange={setIsLimitModalOpen}
+        limitType="files"
+      />
+    </>
   );
 };
 

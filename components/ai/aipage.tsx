@@ -86,6 +86,8 @@ import { SidebarTrigger } from "../ui/sidebar";
 import { ChatHistoryPopover } from "./chathistorypopover";
 import { useAiStore } from "@/stores/aiStore";
 import { toast } from "sonner";
+import { UsageLimitModal } from "../subscription/usage-limit-modal";
+import Ailimit from "../subscription/ailimit-banner";
 
 interface Props {
   chatId: Id<"chats">;
@@ -122,6 +124,8 @@ const Chat = ({ chatId }: Props) => {
   const initialMessages = useQuery(api.chat.getChat, { chatId: chatId }); //fetch the messages form convex
   const addMessage = useMutation(api.chat.addmessage);
   const updateChat = useMutation(api.chat.updateChat);
+  const canchat = useQuery(api.subscriptions.canUseAiChat); // can the user use ai
+  const [IslimitModalOpen, setIsLimitModalOpen] = useState(false); //to open the limited modal
   const [contextFolder, setContextFolder] = useState<Doc<"folders">[]>([]);
   const [contextNote, setContextNote] = useState<Doc<"notes">[]>([]);
 
@@ -194,6 +198,12 @@ const Chat = ({ chatId }: Props) => {
     // if (!validateFiles(message.files)) {
     //   return; // Stop execution if files are invalid
     // }
+    const access = canchat?.allowed;
+    if (!access) {
+      setIsLimitModalOpen(true);
+      setInput("");
+      return;
+    }
     const hasText = Boolean(message.text?.trim());
     const hasAttachments = Boolean(message.files?.length);
 
@@ -487,6 +497,7 @@ const Chat = ({ chatId }: Props) => {
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
+        {!canchat?.allowed && <Ailimit />}
         <PromptInput onSubmit={handleSubmit} className="" globalDrop multiple>
           <PromptInputHeader>
             <PromptInputAttachments>
@@ -696,6 +707,13 @@ const Chat = ({ chatId }: Props) => {
           </PromptInputFooter>
         </PromptInput>
       </div>
+      <UsageLimitModal
+        isOpen={IslimitModalOpen}
+        onOpenChange={setIsLimitModalOpen}
+        limitType="tokens"
+        tokensLimit={canchat?.aiTokensLimit}
+        tokensUsed={canchat?.aiTokens}
+      />
     </div>
   );
 };

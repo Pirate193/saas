@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
-import { useAction } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useState } from "react";
-
+import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
+import { Skeleton } from "../ui/skeleton";
 interface UsageLimitModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,23 +32,14 @@ export function UsageLimitModal({
 }: UsageLimitModalProps) {
   const generateCheckoutLink = useAction(api.polar.generateCheckoutLink);
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleUpgrade = async () => {
-    setIsLoading(true);
-    try {
-      const checkoutUrl = await generateCheckoutLink({
-        productIds: ["b87a4c7c-d869-4992-9dee-f30847c6f8ac"],
-      });
-      if (checkoutUrl) {
-        window.open(checkoutUrl, "_blank");
-        onOpenChange(false);
-      }
-    } catch (error) {
-      console.error("Failed to generate checkout link:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const products = useQuery(api.polar.getConfiguredProducts);
+  if (!products?.Folders_Pro) {
+    return (
+      <div>
+        <Skeleton className="h-2 w-4" />
+      </div>
+    );
+  }
 
   const getContent = () => {
     switch (limitType) {
@@ -114,22 +106,16 @@ export function UsageLimitModal({
           </ul>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="gap-2 flex items-center ">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Maybe Later
           </Button>
-          <Button
-            onClick={handleUpgrade}
-            disabled={isLoading}
-            className="gap-2"
+          <CheckoutLink
+            polarApi={{ generateCheckoutLink: api.polar.generateCheckoutLink }}
+            productIds={[products?.Folders_Pro?.id]}
           >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Upgrade to Pro
-          </Button>
+            <Button>Upgrade to pro</Button>
+          </CheckoutLink>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,3 +1,4 @@
+"use client";
 import React from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,12 @@ import {
 } from "@/components/ui/card";
 import { Check } from "lucide-react";
 import Link from "next/link";
-import { Dialog, DialogContent } from "../ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import { useAction, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useState } from "react";
+import { CheckoutLink, CustomerPortalLink } from "@convex-dev/polar/react";
+import { Skeleton } from "../ui/skeleton";
 
 interface SubscriptionDialogProps {
   isOpen: boolean;
@@ -21,10 +27,23 @@ const SubscriptionDialog = ({
   isOpen,
   onOpenChange,
 }: SubscriptionDialogProps) => {
+  const products = useQuery(api.polar.getConfiguredProducts);
+  if (!products?.Folders_Pro) {
+    return (
+      <div>
+        <Skeleton className="h-2 w-4" />
+      </div>
+    );
+  }
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className=" max-h-[calc(100vh-2rem)] p-0 md:max-h-[500px] md:max-w-[700px] lg:max-w-[800px] overflow-y-auto scrollbar-hidden ">
-        <div className="mx-auto max-w-6xl px-2">
+        <DialogTitle>
+          <p className="text-2xl text-center ">
+            Upgrade Your Learning Experience
+          </p>{" "}
+        </DialogTitle>
+        <div className="mx-auto max-w-6xl px-2 py-2">
           <div className="flex justify-between  gap-2">
             <Card className="flex flex-col">
               <CardHeader>
@@ -32,9 +51,6 @@ const SubscriptionDialog = ({
                 <span className="my-3 block text-2xl font-semibold">
                   $0 / mo
                 </span>
-                <CardDescription className="text-sm">
-                  Per editor
-                </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-4">
@@ -42,9 +58,10 @@ const SubscriptionDialog = ({
 
                 <ul className="list-outside space-y-3 text-sm">
                   {[
-                    "Basic Analytics Dashboard",
-                    "5GB Cloud Storage",
-                    "Email and Chat Support",
+                    "Unlimited Folders and Notes",
+                    "Limited File Upload",
+                    "Limted Ai Chat",
+                    "Access to The Knowledge Market",
                   ].map((item, index) => (
                     <li key={index} className="flex items-center gap-2">
                       <Check className="size-3" />
@@ -56,7 +73,7 @@ const SubscriptionDialog = ({
 
               <CardFooter className="mt-auto">
                 <Button asChild variant="outline" className="w-full">
-                  <Link href="">Get Started</Link>
+                  <Link href="/home">Get Started</Link>
                 </Button>
               </CardFooter>
             </Card>
@@ -70,11 +87,8 @@ const SubscriptionDialog = ({
                 <CardHeader>
                   <CardTitle className="font-medium">Pro</CardTitle>
                   <span className="my-3 block text-2xl font-semibold">
-                    $19 / mo
+                    $10 / mo
                   </span>
-                  <CardDescription className="text-sm">
-                    Per editor
-                  </CardDescription>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
@@ -82,15 +96,10 @@ const SubscriptionDialog = ({
                   <ul className="list-outside space-y-3 text-sm">
                     {[
                       "Everything in Free Plan",
-                      "5GB Cloud Storage",
-                      "Email and Chat Support",
-                      "Access to Community Forum",
-                      "Single User Access",
-                      "Access to Basic Templates",
-                      "Mobile App Access",
-                      "1 Custom Report Per Month",
-                      "Monthly Product Updates",
-                      "Standard Security Features",
+                      "UnLimited File Uploads",
+                      "Unlimited Ai chats",
+                      "Access to Chat with Pdf",
+                      "Unlimited Ai Flashcard Generation",
                     ].map((item, index) => (
                       <li key={index} className="flex items-center gap-2">
                         <Check className="size-3" />
@@ -100,10 +109,16 @@ const SubscriptionDialog = ({
                   </ul>
                 </CardContent>
 
-                <CardFooter>
-                  <Button asChild className="w-full">
-                    <Link href="">Get Started</Link>
-                  </Button>
+                <CardFooter className="mt-4">
+                  <CheckoutLink
+                    polarApi={{
+                      generateCheckoutLink: api.polar.generateCheckoutLink,
+                    }}
+                    productIds={[products?.Folders_Pro?.id]}
+                    embed={false}
+                  >
+                    <Button className="w-full">Get pro</Button>
+                  </CheckoutLink>
                 </CardFooter>
               </div>
             </Card>

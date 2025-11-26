@@ -11,6 +11,7 @@ import {
   Sidebar,
   SidebarClose,
   SlashIcon,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -35,6 +36,7 @@ import {
 import { useState } from "react";
 import Chatwithpdf from "@/components/filescomponents/chatwithpdf";
 import extractTextFromPDF from "@/lib/pdfparse";
+import { UsageLimitModal } from "@/components/subscription/usage-limit-modal";
 const FilePage = () => {
   const params = useParams();
   const fileId = params.fileId;
@@ -42,6 +44,8 @@ const FilePage = () => {
   const folder = useQuery(api.folders.getFolderById, {
     folderId: file?.file.folderId as Id<"folders">,
   });
+  const canchat = useQuery(api.subscriptions.canUseChatWithPDF);
+  const [islimitmodalopen, setIsLimitModalOpen] = useState(false);
   const [openchat, setopenchat] = useState(false);
   if (!file) {
     return (
@@ -95,6 +99,14 @@ const FilePage = () => {
         );
     }
   };
+  const handleopenchatwithpdf = () => {
+    const access = canchat?.allowed;
+    if (!access) {
+      setIsLimitModalOpen(true);
+    } else {
+      setopenchat(!openchat);
+    }
+  };
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="h-14 w-full border-b flex items-center justify-between px-4 shrink-0">
@@ -123,8 +135,8 @@ const FilePage = () => {
           </Breadcrumb>
         </div>
         <div className="text-sm text-muted-foreground">
-          <Button onClick={() => setopenchat(!openchat)}>
-            <SidebarClose />
+          <Button onClick={() => handleopenchatwithpdf()}>
+            <Sparkles />
           </Button>
         </div>
       </div>
@@ -160,6 +172,11 @@ const FilePage = () => {
           )}
         </ResizablePanelGroup>
       </div>
+      <UsageLimitModal
+        isOpen={islimitmodalopen}
+        onOpenChange={setIsLimitModalOpen}
+        limitType="chat_pdf"
+      />
     </div>
   );
 };

@@ -6,7 +6,7 @@ import { polar } from "./polar";
 
 // Free tier limits
 const LIMITS = {
-  FREE_DAILY_TOKENS: 10000, // 10k tokens per day
+  FREE_DAILY_TOKENS: 1000, // 10k tokens per day
   FREE_TOTAL_FILE_UPLOADS: 5, // 5 PDF uploads total
   FREE_DAILY_FLASHCARDS: 10, // 10 AI-generated flashcards per day
 };
@@ -146,7 +146,7 @@ export const getOrCreateUsageTracking = mutation({
 
 // // Check if user can perform AI chat
 export const canUseAiChat = query({
-  args: { tokensNeeded: v.optional(v.number()) },
+  args: { },
   handler:async (ctx, args) => {
     
     const user = await ctx.auth.getUserIdentity();
@@ -167,7 +167,8 @@ export const canUseAiChat = query({
         allowed:false,
         reason:"free_limit_reached",
         aiTokens:aiTokens,
-        aiTokensLimit:LIMITS.FREE_DAILY_TOKENS
+        aiTokensLimit:LIMITS.FREE_DAILY_TOKENS,
+        lastrest:remaining?.lastResetDate,
       }
     }
     return {

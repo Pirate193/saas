@@ -35,6 +35,9 @@ import { ModeToggle } from "../themetoggle";
 // 2. IMPORT your new AccountModal
 import { AccountModal } from "./account-modal";
 import SubscriptionDialog from "../subscription/subscription-dialog";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Badge } from "../ui/badge";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -42,6 +45,7 @@ export function NavUser() {
   // 3. REMOVE openUserProfile from useClerk()
   const { signOut } = useClerk();
   const router = useRouter();
+  const tier = useQuery(api.subscriptions.getSubscription);
 
   // 4. ADD state to control your modal
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -105,7 +109,13 @@ export function NavUser() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{fullName}</span>
+                  <div className="gap-2 flex">
+                    <span className="truncate font-semibold">{fullName}</span>
+                    <Badge variant="outline">
+                      {tier?.isFree ? "free" : "pro"}
+                    </Badge>
+                  </div>
+
                   <span className="truncate text-xs text-muted-foreground">
                     {email}
                   </span>
@@ -145,16 +155,16 @@ export function NavUser() {
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               {/* Upgrade to Pro */}
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => setSubscriptionDialogOpen(true)}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Upgrade to Pro
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-
-              <DropdownMenuSeparator />
+              {tier?.isFree && (
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => setSubscriptionDialogOpen(true)}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Upgrade to Pro
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              )}
 
               {/* Settings Options */}
               <DropdownMenuGroup>

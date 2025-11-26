@@ -242,6 +242,11 @@ def example():
     },
     tools,
     stopWhen: stepCountIs(10),
+    onFinish: async ({ usage }) => {
+      const {totalTokens,inputTokens,outputTokens } = usage;
+      await convex.mutation(api.subscriptions.trackAiTokenUsage,{tokens:totalTokens as number})
+      console.log('Total tokens:', totalTokens);
+    },
   });
 
   return result.toUIMessageStreamResponse({

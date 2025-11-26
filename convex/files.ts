@@ -38,8 +38,9 @@ export const uploadFile = mutation({
         // Check if user can upload files
         const canUpload = await ctx.runQuery(api.subscriptions.canUploadFile);
         if (!canUpload.allowed) {
-            throw new Error(`File upload limit reached. ${canUpload.reason}. You have uploaded ${canUpload.filesUploaded}/${canUpload.filesLimit} files.`);
-        }
+            throw new Error(`File upload limit reached`);
+
+        } 
 
         const fileId = await ctx.db.insert("files",{
             userId:user.subject,

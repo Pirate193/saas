@@ -49,6 +49,8 @@ import { ChatHistoryPopover } from "@/components/ai/chathistorypopover";
 import { toast } from "sonner";
 import { useAiStore } from "@/stores/aiStore";
 import { FileUIPart } from "ai";
+import { UsageLimitModal } from "@/components/subscription/usage-limit-modal";
+import Ailimit from "@/components/subscription/ailimit-banner";
 
 const suggestions: { key: string; value: string }[] = [
   { key: nanoid(), value: "Help with my homework" },
@@ -95,6 +97,8 @@ export default function NewChatPage() {
   const [contextFolder, setContextFolder] = useState<Doc<"folders">[]>([]);
   const [contextNote, setContextNote] = useState<Doc<"notes">[]>([]);
   const setPendingMessage = useAiStore((state) => state.setPendingMessage);
+  const canchat = useQuery(api.subscriptions.canUseAiChat); // can the user use ai
+  const [IslimitModalOpen, setIsLimitModalOpen] = useState(false); //to open the limited modal
   // ---
 
   const allFolders = useQuery(api.folders.fetchFolders);
@@ -117,6 +121,11 @@ export default function NewChatPage() {
     //  if (!validateFiles(message.files)) {
     //   return; // Stop execution if files are invalid
     // }
+    const access = canchat?.allowed;
+    if (!access) {
+      setIsLimitModalOpen(true);
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -179,7 +188,7 @@ export default function NewChatPage() {
           />
         ))}
       </Suggestions>
-
+      {!canchat?.allowed && <Ailimit />}
       {/* --- ADDED: Provider and wrapper div for the input --- */}
       <PromptInputProvider>
         <div className="w-full">
@@ -318,7 +327,8 @@ export default function NewChatPage() {
                 >
                   <Folder size={12} className="mr-1.5 shrink-0" />
                   <span className="truncate">{folder.name}</span>
-                  <button
+                  <span
+                    role="button"
                     className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                     onClick={(e) => {
                       e.stopPropagation(); // Stop popover from opening
@@ -328,7 +338,7 @@ export default function NewChatPage() {
                     }}
                   >
                     <X size={12} />
-                  </button>
+                  </span>
                 </PromptInputButton>
               ))}
               {/* Tags for selected notes */}
@@ -341,7 +351,8 @@ export default function NewChatPage() {
                 >
                   <Notebook size={12} className="mr-1.5 shrink-0" />
                   <span className="truncate">{note.title}</span>
-                  <button
+                  <span
+                    role="button"
                     className="ml-1.5 p-0.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-muted"
                     onClick={(e) => {
                       e.stopPropagation(); // Stop popover from opening
@@ -351,7 +362,7 @@ export default function NewChatPage() {
                     }}
                   >
                     <X size={12} />
-                  </button>
+                  </span>
                 </PromptInputButton>
               ))}
             </PromptInputHeader>
@@ -404,6 +415,13 @@ export default function NewChatPage() {
           </PromptInput>
         </div>
       </PromptInputProvider>
+      <UsageLimitModal
+        isOpen={IslimitModalOpen}
+        onOpenChange={setIsLimitModalOpen}
+        limitType="tokens"
+        tokensLimit={canchat?.aiTokensLimit}
+        tokensUsed={canchat?.aiTokens}
+      />
     </div>
   );
 }
