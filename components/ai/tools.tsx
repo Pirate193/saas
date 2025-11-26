@@ -15,6 +15,8 @@ import {
   PenLine,
   BrainCircuit,
   Layers,
+  Network,
+  PenTool,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
@@ -28,6 +30,8 @@ import {
   getUserFlashcardsOutputSchema,
   getFlashcardOutputSchema,
   generateCodeSnippetOutputSchema,
+  generateMermaidDiagramOutputSchema,
+  createWhiteboardOutputSchema,
 } from "@/types/aitoolstypes";
 import { useCanvasStore } from "@/stores/canvasStore";
 
@@ -284,6 +288,95 @@ export const GenerateCodeSnippet = ({ output }: { output: unknown }) => {
         </div>
         {/* Gradient Overlay using theme colors */}
         <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-muted to-transparent" />
+      </div>
+    </div>
+  );
+};
+
+export const GenerateMermaidDiagram = ({ output }: { output: unknown }) => {
+  const { openMermaid } = useCanvasStore();
+  const parsed = useMemo(
+    () => generateMermaidDiagramOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+
+  return (
+    <div
+      className={ARTIFACT_BASE_CLASSES}
+      onClick={() =>
+        openMermaid({
+          title: data.title,
+          diagram: data.diagram,
+          description: data.description,
+        })
+      }
+    >
+      <div className={ARTIFACT_HEADER_CLASSES}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-muted rounded-md border border-border">
+            <Network className="h-5 w-5 text-blue-500" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-semibold">
+              {" "}
+              Created Diagram :{data.title}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {data.description || "Interactive Diagram"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const CreateWhiteboard = ({ output }: { output: unknown }) => {
+  const { openWhiteboard } = useCanvasStore();
+  const parsed = useMemo(
+    () => createWhiteboardOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+
+  return (
+    <div
+      className={ARTIFACT_BASE_CLASSES}
+      onClick={() =>
+        openWhiteboard({
+          id: data.id,
+          title: data.title,
+        })
+      }
+    >
+      <div className={ARTIFACT_HEADER_CLASSES}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-muted rounded-md border border-border">
+            <PenTool className="h-5 w-5 text-purple-500" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-semibold">{data.title}</span>
+            <span className="text-xs text-muted-foreground">
+              Whiteboard Canvas
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${ARTIFACT_CONTENT_PAD} bg-muted/30 relative`}>
+        <div className="flex items-center justify-center h-32">
+          <div className="flex flex-col items-center gap-2">
+            <PenTool className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Click to open whiteboard
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );

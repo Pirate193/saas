@@ -1,57 +1,88 @@
-import { streamText, UIMessage, convertToModelMessages, tool, stepCountIs } from "ai";
-import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
+import {
+  streamText,
+  UIMessage,
+  convertToModelMessages,
+  tool,
+  stepCountIs,
+} from "ai";
+import { google, GoogleGenerativeAIProviderOptions } from "@ai-sdk/google";
 import { ConvexClient, ConvexHttpClient } from "convex/browser";
-import { z } from 'zod';
+import { z } from "zod";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { blockNoteToMarkdown, markdownToBlockNote } from "@/lib/convertmarkdowntoblock";
-import { CreateFolderOutput, CreateNoteOutput, GenerateCodeSnippetOutput, GenerateFlashcardOutput, GetFlashcardOutput, GetFolderItemsOutput, GetUserFlashcardsOutput, UpdateFolderOutput, UpdateNoteOutput } from "@/types/aitoolstypes";
-
+import {
+  blockNoteToMarkdown,
+  markdownToBlockNote,
+} from "@/lib/convertmarkdowntoblock";
+import {
+  CreateFolderOutput,
+  CreateNoteOutput,
+  CreateWhiteboardOutput,
+  GenerateCodeSnippetOutput,
+  GenerateFlashcardOutput,
+  GenerateMermaidDiagramOutput,
+  GetFlashcardOutput,
+  GetFolderItemsOutput,
+  GetUserFlashcardsOutput,
+  UpdateFolderOutput,
+  UpdateNoteOutput,
+} from "@/types/aitoolstypes";
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages,webSearch, contextFolder, convexToken, contextNote, studyMode, thinking }: { 
-    messages: UIMessage[], 
-    webSearch?: boolean,
-    contextFolder?: Doc<'folders'>[], 
-    convexToken?: string ,
-    contextNote?: Doc<'notes'>[],
-    studyMode?: boolean,
-    thinking?: boolean,
+  const {
+    messages,
+    webSearch,
+    contextFolder,
+    convexToken,
+    contextNote,
+    studyMode,
+    thinking,
+  }: {
+    messages: UIMessage[];
+    webSearch?: boolean;
+    contextFolder?: Doc<"folders">[];
+    convexToken?: string;
+    contextNote?: Doc<"notes">[];
+    studyMode?: boolean;
+    thinking?: boolean;
   } = await req.json();
-  
+
   const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-  
+
   if (convexToken) {
     convex.setAuth(convexToken);
   } else {
-    return new Response(
-      JSON.stringify({ error: 'Authentication required' }), 
-      { status: 401 }
-    );
+    return new Response(JSON.stringify({ error: "Authentication required" }), {
+      status: 401,
+    });
   }
 
-  const folderContext = (contextFolder && contextFolder.length > 0)
-    ? `Tagged Folders: ${contextFolder.map(f => `"${f.name}" (ID: ${f._id})`).join(', ')}`
-    : `No folders are currently tagged.`;
-  console.log('folderContext',folderContext)
+  const folderContext =
+    contextFolder && contextFolder.length > 0
+      ? `Tagged Folders: ${contextFolder.map((f) => `"${f.name}" (ID: ${f._id})`).join(", ")}`
+      : `No folders are currently tagged.`;
+  console.log("folderContext", folderContext);
 
   // Build context string for tagged notes
-  const noteContext = (contextNote && contextNote.length > 0)
-    ? `Tagged Notes: ${contextNote.map(n => `"${n.title}" (ID: ${n._id})`).join(', ')}`
-    : `No notes are currently tagged.`;
-    console.log('noteContext',noteContext)
+  const noteContext =
+    contextNote && contextNote.length > 0
+      ? `Tagged Notes: ${contextNote.map((n) => `"${n.title}" (ID: ${n._id})`).join(", ")}`
+      : `No notes are currently tagged.`;
+  console.log("noteContext", noteContext);
 
   // Build a string for the study mode
-  const studyModeContext = studyMode ? 'ACTIVE (Tutor Mode)' : 'INACTIVE (Assistant Mode)';
-  console.log('studyModeContext',studyModeContext)
-  
-  // Build a string for web search
-  const webSearchContext = webSearch ? 'ENABLED' : 'DISABLED';
-  console.log('webSearchContext',webSearchContext)
+  const studyModeContext = studyMode
+    ? "ACTIVE (Tutor Mode)"
+    : "INACTIVE (Assistant Mode)";
+  console.log("studyModeContext", studyModeContext);
 
-  const userInfo = await convex.query(api.user.getCurrentUser)
+  // Build a string for web search
+  const webSearchContext = webSearch ? "ENABLED" : "DISABLED";
+  console.log("webSearchContext", webSearchContext);
+
+  const userInfo = await convex.query(api.user.getCurrentUser);
 
   // --- (This is the new System Prompt) ---
   const system = `
@@ -66,7 +97,9 @@ You are an expert AI study assistant. Your primary goal is to help students lear
 - ${userInfo}
 
 ## 3. MODE-SPECIFIC BEHAVIOR
-${studyMode ? `
+${
+  studyMode
+    ? `
 ### TUTOR MODE (STUDY MODE IS ON)
 You are an interactive, Socratic tutor. Your goal is to guide the student to their own understanding.
 - **NEVER** give a direct, final answer to a knowledge question (e.g., "What is machine learning?").
@@ -78,20 +111,30 @@ You are an interactive, Socratic tutor. Your goal is to guide the student to the
   - *User:* "What is machine learning?"
   - *You:* "That's a great topic! To start, what do you already know about how computers make decisions? For example, have you heard of 'if-then' rules?"
 - Proactively use tools. If a student is learning, call \`getfolderitems\` to see if they have notes, then call \`getUserFlashcards\` to quiz them. This is a core part of guided learning.
-` : `
+`
+    : `
 ### ASSISTANT MODE (STUDY MODE IS OFF)
 You are a direct, efficient AI assistant. Your goal is to provide comprehensive, factual answers quickly.
 - **ALWAYS** provide a direct, complete answer to the user's question.
 - Use clear formatting (headings, lists) to make information easy to digest.
 - Be autonomous: if asked to "create flashcards," do it immediately using your own knowledge and the provided context.
-`}
+`
+}
 
 ## 4. CRITICAL TOOL USAGE
 - **AUTONOMY (MANDATORY)**: You are fully autonomous. When asked to generate content (flashcards, notes), you MUST generate it yourself based on the context. **NEVER** ask the user to provide the questions, answers, or content.
 - **CONTEXT FIRST**: Before generating *any* new content, **ALWAYS** call \`getfolderitems\` on a tagged folder to see what notes, files, and flashcards already exist. This prevents duplication and provides context.
-- **WEB SEARCH**: ${webSearch ? 'Use the \`searchTheWeb\` tool if the user asks for current events or information you cannot find in the chat history or tagged context.' : 'You do not have access to the web. Only use your internal knowledge.'}
+- **WEB SEARCH**: ${webSearch ? "Use the \`searchTheWeb\` tool if the user asks for current events or information you cannot find in the chat history or tagged context." : "You do not have access to the web. Only use your internal knowledge."}
 
 ## 5. SPECIFIC TOOL INSTRUCTIONS
+### Generating Diagrams:
+1. **Use Visuals**: If a user asks to "visualize", "chart", "map out", "flow", or explain a complex process, use \`generateMermaidDiagram\`.
+2. **Select Type**: Choose the best diagram type:
+   - **Flowchart**: For decision trees, logic flows, or processes.
+   - **Sequence**: For interactions between systems (e.g., API calls, User vs Server).
+   - **Mindmap**: For brainstorming or hierarchical concepts.
+   - **ER**: For database structures.
+3. **Syntax**: Ensure the \`diagram\` code is valid Mermaid.js syntax. Do not wrap it in markdown code blocks inside the tool input; pass the raw string.
 ### Generating Code Snippets:
 1.  Use \`generateCodeSnippet\` to generate a code snippet.
 ### Generating Flashcards:
@@ -229,23 +272,25 @@ def example():
   const tools = createTools(convex);
 
   const result = streamText({
-    model: thinking ? google('gemini-2.5-pro') : google('gemini-2.5-flash'),
+    model: thinking ? google("gemini-2.5-pro") : google("gemini-2.5-flash"),
     messages: convertToModelMessages(messages),
     system: system,
-    providerOptions:{
+    providerOptions: {
       google: {
-      thinkingConfig: {
-        thinkingBudget: 8192,
-        includeThoughts: true,
-      },
-    } satisfies GoogleGenerativeAIProviderOptions,
+        thinkingConfig: {
+          thinkingBudget: 8192,
+          includeThoughts: true,
+        },
+      } satisfies GoogleGenerativeAIProviderOptions,
     },
     tools,
     stopWhen: stepCountIs(10),
     onFinish: async ({ usage }) => {
-      const {totalTokens,inputTokens,outputTokens } = usage;
-      await convex.mutation(api.subscriptions.trackAiTokenUsage,{tokens:totalTokens as number})
-      console.log('Total tokens:', totalTokens);
+      const { totalTokens, inputTokens, outputTokens } = usage;
+      await convex.mutation(api.subscriptions.trackAiTokenUsage, {
+        tokens: totalTokens as number,
+      });
+      console.log("Total tokens:", totalTokens);
     },
   });
 
@@ -258,199 +303,266 @@ def example():
 export function createTools(convex: ConvexHttpClient) {
   return {
     generateFlashcards: tool({
-      description: 'Generate a flashcard in a folder. Create thoughtful questions with correct answers based on the folder content. For multiple choice, provide 4 options. DO NOT ask the user for questions/answers - you should generate them autonomously.',
+      description:
+        "Generate a flashcard in a folder. Create thoughtful questions with correct answers based on the folder content. For multiple choice, provide 4 options. DO NOT ask the user for questions/answers - you should generate them autonomously.",
       inputSchema: z.object({
-        folderId: z.string().describe('The folder ID where the flashcard should be created'),
-        question: z.string().describe('The question to ask (you generate this based on folder content)'),
-        answers: z.array(z.object({
-          text: z.string().describe('Answer option text'),
-          isCorrect: z.boolean().describe('Whether this answer is correct')
-        })).describe('Array of possible answers. For multiple choice: 4 options with 1 correct. For true/false: 2 options.'),
-        isMultipleChoice: z.boolean().describe('True for multiple choice questions, false for true/false or short answer'),
+        folderId: z
+          .string()
+          .describe("The folder ID where the flashcard should be created"),
+        question: z
+          .string()
+          .describe(
+            "The question to ask (you generate this based on folder content)"
+          ),
+        answers: z
+          .array(
+            z.object({
+              text: z.string().describe("Answer option text"),
+              isCorrect: z.boolean().describe("Whether this answer is correct"),
+            })
+          )
+          .describe(
+            "Array of possible answers. For multiple choice: 4 options with 1 correct. For true/false: 2 options."
+          ),
+        isMultipleChoice: z
+          .boolean()
+          .describe(
+            "True for multiple choice questions, false for true/false or short answer"
+          ),
       }),
-      execute: async ({ folderId, question, answers, isMultipleChoice }):Promise<GenerateFlashcardOutput | { success: false, error: string }> => {
+      execute: async ({
+        folderId,
+        question,
+        answers,
+        isMultipleChoice,
+      }): Promise<
+        GenerateFlashcardOutput | { success: false; error: string }
+      > => {
         try {
-          const flashcard = await convex.mutation(api.flashcards.createFlashcard, {
-            folderId: folderId as Id<'folders'>,
-            question: question,
-            answers: answers,
-            isMultipleChoice: isMultipleChoice,
-          });
-          console.log('success in generateFlashcards');
-          return { 
-            success: true, 
-            flashcard:flashcard,
-            message: `Created flashcard: "${question}"` 
+          const flashcard = await convex.mutation(
+            api.flashcards.createFlashcard,
+            {
+              folderId: folderId as Id<"folders">,
+              question: question,
+              answers: answers,
+              isMultipleChoice: isMultipleChoice,
+            }
+          );
+          console.log("success in generateFlashcards");
+          return {
+            success: true,
+            flashcard: flashcard,
+            message: `Created flashcard: "${question}"`,
           };
         } catch (error) {
-          console.log('error in generateFlashcards', error);
-          return { 
-            success: false, 
-            error: `Failed to create flashcard: ${error}` 
+          console.log("error in generateFlashcards", error);
+          return {
+            success: false,
+            error: `Failed to create flashcard: ${error}`,
           };
         }
-      }
+      },
     }),
-    
+
     getUserFlashcards: tool({
-      description: 'Retrieve all flashcards from a specific folder. Use this to  understand what flashcards already exist.',
+      description:
+        "Retrieve all flashcards from a specific folder. Use this to  understand what flashcards already exist.",
       inputSchema: z.object({
-        folderId: z.string().describe('The folder ID to fetch flashcards from'),
+        folderId: z.string().describe("The folder ID to fetch flashcards from"),
       }),
-      execute: async ({ folderId }):Promise<GetUserFlashcardsOutput | { success: false, error: string }> => {
+      execute: async ({
+        folderId,
+      }): Promise<
+        GetUserFlashcardsOutput | { success: false; error: string }
+      > => {
         try {
-          const flashcards = await convex.query(api.flashcards.fetchFlashcards, {
-            folderId: folderId as Id<'folders'>,
-          });
-          console.log('success in getUserFlashcards');
-          return { 
-            success: true, 
+          const flashcards = await convex.query(
+            api.flashcards.fetchFlashcards,
+            {
+              folderId: folderId as Id<"folders">,
+            }
+          );
+          console.log("success in getUserFlashcards");
+          return {
+            success: true,
             flashcards,
-            count: flashcards?.length || 0 
+            count: flashcards?.length || 0,
           };
         } catch (error) {
-          console.log('error in getUserFlashcards', error);
-          return { 
-            success: false, 
-            error: `Failed to fetch flashcards: ${error}` 
+          console.log("error in getUserFlashcards", error);
+          return {
+            success: false,
+            error: `Failed to fetch flashcards: ${error}`,
           };
         }
-      }
+      },
     }),
-    
+
     getfolderitems: tool({
-      description: 'Get all content (notes, files, flashcards) from a folder. ALWAYS call this FIRST before generating new content to understand the context.',
+      description:
+        "Get all content (notes, files, flashcards) from a folder. ALWAYS call this FIRST before generating new content to understand the context.",
       inputSchema: z.object({
-        folderId: z.string().describe('The folder ID to fetch content from'),
+        folderId: z.string().describe("The folder ID to fetch content from"),
       }),
-      execute: async ({ folderId }):Promise<GetFolderItemsOutput | { success: false, error: string }> => {
+      execute: async ({
+        folderId,
+      }): Promise<GetFolderItemsOutput | { success: false; error: string }> => {
         try {
           const [notes, files, flashcards] = await Promise.all([
             convex.query(api.notes.fetchNotesInFolder, {
-              folderId: folderId as Id<'folders'>,
+              folderId: folderId as Id<"folders">,
             }),
             convex.query(api.files.fetchfiles, {
-              folderId: folderId as Id<'folders'>,
+              folderId: folderId as Id<"folders">,
             }),
             convex.query(api.flashcards.fetchFlashcards, {
-              folderId: folderId as Id<'folders'>,
+              folderId: folderId as Id<"folders">,
             }),
           ]);
-          console.log('success in getfolderitems');
-          return { 
+          console.log("success in getfolderitems");
+          return {
             success: true,
             notes: notes || [],
             files: files || [],
             flashcards: flashcards || [],
-            summary: `Found ${notes?.length || 0} notes, ${files?.length || 0} files, and ${flashcards?.length || 0} flashcards`
+            summary: `Found ${notes?.length || 0} notes, ${files?.length || 0} files, and ${flashcards?.length || 0} flashcards`,
           };
         } catch (error) {
-          console.log('getfolderitems error', error);
-          return { 
-            success: false, 
-            error: `Failed to fetch folder items: ${error}` 
+          console.log("getfolderitems error", error);
+          return {
+            success: false,
+            error: `Failed to fetch folder items: ${error}`,
           };
         }
-      }
+      },
     }),
-    
+
     createNote: tool({
-      description: 'Create a new note with a title and content in markdown format . You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title if they have provided a topic .',
+      description:
+        'Create a new note with a title and content in markdown format . You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title if they have provided a topic .',
       inputSchema: z.object({
-        folderId: z.string().describe('The folder ID where the note should be created'),
-        title: z.string().describe('The title for the note (you generate this based on the topic)'),
-        content: z.string().describe('The content for the note (you generate this based on the topic)in markdown format'),
+        folderId: z
+          .string()
+          .describe("The folder ID where the note should be created"),
+        title: z
+          .string()
+          .describe(
+            "The title for the note (you generate this based on the topic)"
+          ),
+        content: z
+          .string()
+          .describe(
+            "The content for the note (you generate this based on the topic)in markdown format"
+          ),
       }),
-      execute: async ({ folderId, title ,content }):Promise<CreateNoteOutput | { success: false, error: string }> => {
+      execute: async ({
+        folderId,
+        title,
+        content,
+      }): Promise<CreateNoteOutput | { success: false; error: string }> => {
         try {
           const blocks = markdownToBlockNote(content);
           const note = await convex.mutation(api.notes.createNote, {
-            folderId: folderId as Id<'folders'>,
+            folderId: folderId as Id<"folders">,
             title: title,
             content: blocks,
           });
-          console.log('created note', note);
-          return { 
-            success: true, 
-            note:note,
-            message: `Created note: "${title}".with content "${content}"` 
+          console.log("created note", note);
+          return {
+            success: true,
+            note: note,
+            message: `Created note: "${title}".with content "${content}"`,
           };
         } catch (error) {
-          console.log('note creation error', error);
-          return { 
-            success: false, 
-            error: `Failed to create note: ${error}` 
+          console.log("note creation error", error);
+          return {
+            success: false,
+            error: `Failed to create note: ${error}`,
           };
         }
-      }
+      },
     }),
-    
+
     updateNote: tool({
-      description: 'Update the content of an existing note. Content MUST be markdown',
+      description:
+        "Update the content of an existing note. Content MUST be markdown",
       inputSchema: z.object({
-        noteId: z.string().describe('The note ID to update'),
-        content: z.string().describe('The full content of the note, written in Markdown format. '),
+        noteId: z.string().describe("The note ID to update"),
+        content: z
+          .string()
+          .describe(
+            "The full content of the note, written in Markdown format. "
+          ),
       }),
-      execute: async ({ noteId, content }):Promise<UpdateNoteOutput | { success: false, error: string }> => {
+      execute: async ({
+        noteId,
+        content,
+      }): Promise<UpdateNoteOutput | { success: false; error: string }> => {
         try {
           const blocks = markdownToBlockNote(content);
           const note = await convex.mutation(api.notes.updateContent, {
-            noteId: noteId as Id<'notes'>,
+            noteId: noteId as Id<"notes">,
             content: blocks,
           });
-          console.log('blocks', blocks);
-          console.log('updated note', note);
-          return { 
-            success: true, 
-            note:note,
-            message: `Note content updated successfully` 
-          };
-        } catch (error) {
-          console.log('note update error', error);
-          return { 
-            success: false, 
-            error: `Failed to update note: ${error}` 
-          };
-        }
-      }
-    }),
-    getNoteContent:tool({
-      description: 'Get the content of a specific note',
-      inputSchema:z.object({
-        noteId:z.string().describe('The note ID to fetch'),
-      }),
-      execute: async ({noteId})=>{
-        try{
-          const note=await convex.query(api.notes.getNoteId,{noteId:noteId as Id<'notes'>})
-          
-          if(note.content === undefined){
-            return {success:false,error:'Note content not found'}
-          }
-          const markdown = blockNoteToMarkdown(note.content)
-          return {success:true,markdown}
-        }
-        catch(error){
-          console.log('note content error',error)
-          return {success:false,error: `Failed to get note content: ${error}`}
-        }
-      }
-    }),
-    
-    getFlashcard: tool({
-      description: 'Get detailed information about a specific flashcard including its question, answers, and performance statistics.',
-      inputSchema: z.object({
-        flashcardId: z.string().describe('The flashcard ID to fetch'),
-      }),
-      execute: async ({ flashcardId }):Promise<GetFlashcardOutput | { success: false, error: string }> => {
-        try {
-          const flashcard = await convex.query(api.flashcards.getFlashcard, {
-            flashcardId: flashcardId as Id<'flashcards'>,
-          });
-    
-          
+          console.log("blocks", blocks);
+          console.log("updated note", note);
           return {
             success: true,
-            flashcard:flashcard,
+            note: note,
+            message: `Note content updated successfully`,
+          };
+        } catch (error) {
+          console.log("note update error", error);
+          return {
+            success: false,
+            error: `Failed to update note: ${error}`,
+          };
+        }
+      },
+    }),
+    getNoteContent: tool({
+      description: "Get the content of a specific note",
+      inputSchema: z.object({
+        noteId: z.string().describe("The note ID to fetch"),
+      }),
+      execute: async ({ noteId }) => {
+        try {
+          const note = await convex.query(api.notes.getNoteId, {
+            noteId: noteId as Id<"notes">,
+          });
+
+          if (note.content === undefined) {
+            return { success: false, error: "Note content not found" };
+          }
+          const markdown = blockNoteToMarkdown(note.content);
+          return { success: true, markdown };
+        } catch (error) {
+          console.log("note content error", error);
+          return {
+            success: false,
+            error: `Failed to get note content: ${error}`,
+          };
+        }
+      },
+    }),
+
+    getFlashcard: tool({
+      description:
+        "Get detailed information about a specific flashcard including its question, answers, and performance statistics.",
+      inputSchema: z.object({
+        flashcardId: z.string().describe("The flashcard ID to fetch"),
+      }),
+      execute: async ({
+        flashcardId,
+      }): Promise<GetFlashcardOutput | { success: false; error: string }> => {
+        try {
+          const flashcard = await convex.query(api.flashcards.getFlashcard, {
+            flashcardId: flashcardId as Id<"flashcards">,
+          });
+
+          return {
+            success: true,
+            flashcard: flashcard,
           };
         } catch (error) {
           return {
@@ -458,9 +570,10 @@ export function createTools(convex: ConvexHttpClient) {
             error: `Failed to fetch flashcard: ${error}`,
           };
         }
-      }
+      },
     }),
 
+    // google_search: google.tools.googleSearch({}),
     searchTheWeb: tool({
       description: "Search the web for recent information on a topic. Use this for any current events, facts, or questions that your internal knowledge does not cover.",
       inputSchema: z.object({
@@ -497,76 +610,187 @@ export function createTools(convex: ConvexHttpClient) {
             .map((item: any) => `Title: ${item.title}\nSource: ${item.source}\nSnippet: ${item.snippet}`)
             .join('\n\n---\n\n');
 
-          return { 
-            success: true, 
+          return {
+            success: true,
             message: `Found ${results.length} results. Here is the summary of the top 5:`,
-            resultsContext: context 
+            resultsContext: context
           };
-            
+
         } catch (error) {
           console.error("Error in searchTheWeb:", error);
           return { success: false, error: `Failed to execute search: ${error}` };
         }
       }
     }),
-    createFolder:tool({
-      description:"Create a new folder with a name and optional description.",
-      inputSchema:z.object({
-        name:z.string().describe('The name of the folder based on the topic'),
-        description:z.string().optional().describe('Optional description of the folder')
+    createFolder: tool({
+      description: "Create a new folder with a name and optional description.",
+      inputSchema: z.object({
+        name: z.string().describe("The name of the folder based on the topic"),
+        description: z
+          .string()
+          .optional()
+          .describe("Optional description of the folder"),
       }),
-      execute:async({name,description}):Promise<CreateFolderOutput | { success: false, error: string }>=>{
-        try{
-         const folder = await convex.mutation(api.folders.createFolder,{name,description})
-         console.log('created folder',folder)
-         return {success:true,folder,message:`Created folder: "${name}"`}
+      execute: async ({
+        name,
+        description,
+      }): Promise<CreateFolderOutput | { success: false; error: string }> => {
+        try {
+          const folder = await convex.mutation(api.folders.createFolder, {
+            name,
+            description,
+          });
+          console.log("created folder", folder);
+          return {
+            success: true,
+            folder,
+            message: `Created folder: "${name}"`,
+          };
+        } catch (error) {
+          console.log("folder creation error", error);
+          return { success: false, error: `Failed to create folder: ${error}` };
         }
-        catch(error){
-          console.log('folder creation error',error)
-          return {success:false,error: `Failed to create folder: ${error}`}
-        }
-      }
+      },
     }),
-    updateFolder:tool({
-      description:"Update the name and description of an existing folder.",
-      inputSchema:z.object({
-        folderId:z.string().describe('The folder ID to update'),
-        name:z.string().optional().describe('The new name for the folder'),
-        description:z.string().optional().describe('The new description for the folder')
+    updateFolder: tool({
+      description: "Update the name and description of an existing folder.",
+      inputSchema: z.object({
+        folderId: z.string().describe("The folder ID to update"),
+        name: z.string().optional().describe("The new name for the folder"),
+        description: z
+          .string()
+          .optional()
+          .describe("The new description for the folder"),
       }),
-      execute:async({folderId,name,description}):Promise<UpdateFolderOutput | { success: false, error: string }>=>{
-        try{
-         const folder = await convex.mutation(api.folders.updateFolder,{folderId:folderId as Id<'folders'>,name,description})
-         console.log('updated folder',folder)
-         return {success:true,message:`Updated folder: "${name}"`}
+      execute: async ({
+        folderId,
+        name,
+        description,
+      }): Promise<UpdateFolderOutput | { success: false; error: string }> => {
+        try {
+          const folder = await convex.mutation(api.folders.updateFolder, {
+            folderId: folderId as Id<"folders">,
+            name,
+            description,
+          });
+          console.log("updated folder", folder);
+          return { success: true, message: `Updated folder: "${name}"` };
+        } catch (error) {
+          console.log("folder update error", error);
+          return { success: false, error: `Failed to update folder: ${error}` };
         }
-        catch(error){
-          console.log('folder update error',error)
-          return {success:false,error: `Failed to update folder: ${error}`}
-        }
-      }
+      },
     }),
 
     generateCodeSnippet: tool({
-  description: 'Generate a code snippet. Use this when the user asks for code examples, algorithms, or solutions. This renders a nice code editor in the UI.',
-  inputSchema: z.object({
-    title: z.string().describe('Short title for the snippet, e.g., "Dijkstra Implementation"'),
-    language: z.string().describe('Programming language, e.g., "python", "typescript", "react"'),
-    code: z.string().describe('The actual code content'),
-    description: z.string().optional().describe('Brief explanation of what the code does'),
-  }),
-  execute: async ({ title, language, code, description }):Promise<GenerateCodeSnippetOutput | { success: false, error: string }> => {
-  
-    return { 
-      success: true, 
-      title, 
-      language, 
-      code, 
-      description,
-    };
-  }
-}),
-    
+      description:
+        "Generate a code snippet. Use this when the user asks for code examples, algorithms, or solutions. This renders a nice code editor in the UI.",
+      inputSchema: z.object({
+        title: z
+          .string()
+          .describe(
+            'Short title for the snippet, e.g., "Dijkstra Implementation"'
+          ),
+        language: z
+          .string()
+          .describe(
+            'Programming language, e.g., "python", "typescript", "react"'
+          ),
+        code: z.string().describe("The actual code content"),
+        description: z
+          .string()
+          .optional()
+          .describe("Brief explanation of what the code does"),
+      }),
+      execute: async ({
+        title,
+        language,
+        code,
+        description,
+      }): Promise<
+        GenerateCodeSnippetOutput | { success: false; error: string }
+      > => {
+        return {
+          success: true,
+          title,
+          language,
+          code,
+          description,
+        };
+      },
+    }),
 
+    generateMermaidDiagram: tool({
+      description:
+        "Generate a Mermaid diagram for visualizing concepts, processes, or relationships. Use this to create flowcharts, sequence diagrams, class diagrams, etc.",
+      inputSchema: z.object({
+        title: z.string().describe("Title for the diagram"),
+        diagramType: z.enum([
+          "flowchart",
+          "sequence",
+          "class",
+          "state",
+          "er",
+          "gantt",
+          "pie",
+          "mindmap",
+          "xy",
+          'block',
+        ]),
+        diagram: z.string().describe("The Mermaid diagram code"),
+        description: z.string().optional().describe("Brief explanation"),
+      }),
+      execute: async ({
+        title,
+        diagramType,
+        diagram,
+        description,
+      }): Promise<
+        GenerateMermaidDiagramOutput | { success: false; error: string }
+      > => {
+        try {
+          if (!diagram.trim()) {
+            return { success: false, error: "Diagram code cannot be empty" };
+          }
+          console.log("used diagram", diagram);
+          return {
+            success: true,
+            title,
+            diagram,
+            description:
+              description || `${diagramType} diagram showing ${title}`,
+          };
+        } catch (error) {
+          console.log("error in generateMermaidDiagram", error);
+          return {
+            success: false,
+            error: `Failed to generate diagram: ${error}`,
+          };
+        }
+      },
+    }),
+
+    // createWhiteboard: tool({
+    //   description: 'Create a new whiteboard for freeform drawing, brainstorming, or visual problem-solving.',
+    //   inputSchema: z.object({
+    //     title: z.string().describe('Title for the whiteboard'),
+    //     folderId: z.string().optional().describe('Optional folder ID'),
+    //   }),
+    //   execute: async ({ title, }): Promise<CreateWhiteboardOutput | { success: false, error: string }> => {
+    //     try {
+    //       const whiteboardId = `wb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    //       return {
+    //         success: true,
+    //         id: whiteboardId,
+    //         title,
+    //         message: `Created whiteboard: "${title}"`
+    //       };
+    //     } catch (error) {
+    //       console.log('error in createWhiteboard', error);
+    //       return { success: false, error: `Failed to create whiteboard: ${error}` };
+    //     }
+    //   }
+    // }),
   };
 }

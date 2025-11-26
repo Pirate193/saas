@@ -1,19 +1,26 @@
-'use client';
+"use client";
 
-import { useMutation, useQuery } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { useRouter, useParams } from 'next/navigation';
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useRouter, useParams } from "next/navigation";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { ChevronsUpDown, Edit, MessageSquare, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
-import { ScrollArea } from '../ui/scroll-area';
-import { Doc, Id } from '@/convex/_generated/dataModel';
-import { useAiStore } from '@/stores/aiStore';
-import { useState } from 'react';
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import {
+  ChevronsUpDown,
+  Edit,
+  MessageSquare,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { ScrollArea } from "../ui/scroll-area";
+import { Doc, Id } from "@/convex/_generated/dataModel";
+import { useAiStore } from "@/stores/aiStore";
+import { useState } from "react";
 
 import {
   DropdownMenu,
@@ -21,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,7 +38,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -39,35 +46,35 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { Label } from '../ui/label';
-import { Input } from '../ui/input';
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
 
 export function ChatHistoryPopover() {
   const chats = useQuery(api.chat.fetchChats);
   const params = useParams();
-  const {setActiveChatId,activeChatId}=useAiStore()
-  const chatId = params.chatId as Id<'chats'>;
-  const deletechat= useMutation(api.chat.deleteChat);
+  const { setActiveChatId, activeChatId } = useAiStore();
+  const chatId = params.chatId as Id<"chats">;
+  const deletechat = useMutation(api.chat.deleteChat);
   const updateChat = useMutation(api.chat.updateChat);
 
   // Dialog state
-  const [selectedChat, setSelectedChat] = useState<Doc<'chats'> | null>(null);
+  const [selectedChat, setSelectedChat] = useState<Doc<"chats"> | null>(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
+  const [newTitle, setNewTitle] = useState("");
 
-  const currentChat = chats?.find(c => c._id === chatId);
-  const otherChats = chats?.filter(c => c._id !== chatId).reverse(); // Show newest first
+  const currentChat = chats?.find((c) => c._id === chatId);
+  const otherChats = chats?.filter((c) => c._id !== chatId).reverse(); // Show newest first
 
-    const handleRenameClick = (chat: Doc<'chats'>) => {
+  const handleRenameClick = (chat: Doc<"chats">) => {
     setSelectedChat(chat);
     setNewTitle(chat.title);
     setRenameDialogOpen(true);
   };
 
-  const handleDeleteClick = (chat: Doc<'chats'>) => {
+  const handleDeleteClick = (chat: Doc<"chats">) => {
     setSelectedChat(chat);
     setDeleteAlertOpen(true);
   };
@@ -76,12 +83,12 @@ export function ChatHistoryPopover() {
     if (!selectedChat || !newTitle.trim()) return;
     try {
       await updateChat({ chatId: selectedChat._id, title: newTitle.trim() });
-      toast.success('Chat renamed successfully!');
+      toast.success("Chat renamed successfully!");
       setRenameDialogOpen(false);
       setSelectedChat(null);
-      setNewTitle('');
+      setNewTitle("");
     } catch (e) {
-      toast.error('Failed to rename chat.');
+      toast.error("Failed to rename chat.");
       console.error(e);
     }
   };
@@ -90,50 +97,49 @@ export function ChatHistoryPopover() {
     if (!selectedChat) return;
     try {
       await deletechat({ chatId: selectedChat._id });
-      toast.success('Chat deleted.');
+      toast.success("Chat deleted.");
       setDeleteAlertOpen(false);
       setActiveChatId(null);
       setSelectedChat(null);
     } catch (e) {
-      toast.error('Failed to delete chat.');
+      toast.error("Failed to delete chat.");
       console.error(e);
     }
   };
 
   return (
     <>
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          className="text-lg font-bold gap-2 px-2"
-        >
-          <span className="truncate max-w-48">
-            {currentChat ? currentChat.title : 'New Chat'}
-          </span>
-          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0 flex flex-col max-h-96">
-        <ScrollArea className="flex-1 overflow-auto scrollbar-hidden">
-          <div className="p-2">
-            {otherChats && otherChats.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-muted-foreground px-2">
-                  Recent Chats
-                </p>
-                {otherChats.map(chat => (
-                  <div  key={chat._id}
-                      className="group flex items-center justify-between w-full pr-2" >
-                  <Button
-                    variant="ghost"
-                    className="flex-1 justify-start gap-2 font-normal truncate"
-                    onClick={() => setActiveChatId(chat._id)}
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                    <span className="truncate">{chat.title}</span>
-                  </Button>
-                   <DropdownMenu>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" className="text-lg font-bold gap-2 px-2">
+            <span className="truncate max-w-48">
+              {currentChat ? currentChat.title : "New Chat"}
+            </span>
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0 flex flex-col max-h-96">
+          <ScrollArea className="flex-1 overflow-auto scrollbar-hidden">
+            <div className="p-2">
+              {otherChats && otherChats.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground px-2">
+                    Recent Chats
+                  </p>
+                  {otherChats.map((chat) => (
+                    <div
+                      key={chat._id}
+                      className="group flex items-center justify-between w-80 pr-2"
+                    >
+                      <Button
+                        variant="ghost"
+                        className="flex-1 justify-start gap-2 font-normal truncate"
+                        onClick={() => setActiveChatId(chat._id)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        <span className="truncate">{chat.title}</span>
+                      </Button>
+                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
@@ -165,25 +171,25 @@ export function ChatHistoryPopover() {
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                  </div>
-                ))}
-              </div>
-            )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <div className="border-t p-2">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-2"
+              onClick={() => setActiveChatId(null)}
+            >
+              <Plus className="h-4 w-4" />
+              New Chat
+            </Button>
           </div>
-        </ScrollArea>
-        <div className="border-t p-2">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2"
-            onClick={() =>setActiveChatId(null)}
-          > 
-            <Plus className="h-4 w-4" />
-            New Chat
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-    
+        </PopoverContent>
+      </Popover>
+
       {/* ---------- RENAME DIALOG ---------- */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent>
@@ -191,7 +197,7 @@ export function ChatHistoryPopover() {
             <DialogTitle>Rename Chat</DialogTitle>
             <DialogDescription>
               Enter a new title for your chat: &quot;
-              {selectedChat?.title || ''}&quot;
+              {selectedChat?.title || ""}&quot;
             </DialogDescription>
           </DialogHeader>
 

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 
 export const createFlashcard = mutation({
@@ -11,6 +12,7 @@ export const createFlashcard = mutation({
               isCorrect:v.boolean()
             })),
             isMultipleChoice:v.boolean(),
+        explanation:v.optional(v.string()),
     },
     handler:async(ctx ,args)=>{
         const identity = await ctx.auth.getUserIdentity();
@@ -23,6 +25,7 @@ export const createFlashcard = mutation({
             question:args.question,
             answers:args.answers,
             isMultipleChoice:args.isMultipleChoice,
+            explanation:args.explanation,
             updatedAt:Date.now(),
         })
         return flashcardId
@@ -299,3 +302,48 @@ export const fetchFlashcardProgress = query({
         return progress;
     }
 })
+
+
+export const saveAiFlashcards = mutation({
+  args: {
+    folderId: v.id("folders"),
+    flashcards: v.array(
+      v.object({
+        question: v.string(),
+        answers: v.array(
+          v.object({ text: v.string(), isCorrect: v.boolean() })
+        ),
+        explanation: v.string(),
+      })
+    ),
+    isMultipleChoice: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("Unauthorized");
+    const count = args.flashcards.length;
+    // 1. Final Limit Check (Security)
+    // We check "canGenerate" again to prevent someone manually calling this mutation to bypass limits
+    const canGen = await ctx.runQuery(api.subscriptions.canGenerateFlashcard,{count:count});
+    if (!canGen.allowed) {
+      throw new Error(canGen.reason || "Limit reached");
+    }
+
+    // 2. Batch Insert Flashcards
+    const promises = args.flashcards.map((card) =>
+      ctx.db.insert("flashcards", {
+        userId: user.subject,
+        folderId: args.folderId,
+        question: card.question,
+        answers: card.answers,
+        isMultipleChoice: args.isMultipleChoice,
+        explanation: card.explanation, // Store the AI explanation!
+        updatedAt: Date.now(),
+      })
+    );
+
+    await Promise.all(promises);
+
+   await ctx.runMutation(api.subscriptions.trackFlashcardGeneration,{count:count})
+  },
+});

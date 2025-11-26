@@ -1,7 +1,16 @@
 "use client";
-import React, { useState, useEffect } from "react";
-
-import { Loader2, Sparkles, Brain } from "lucide-react";
+import React, { useState, useRef } from "react";
+import {
+  Loader2,
+  Sparkles,
+  Brain,
+  Youtube,
+  FileText,
+  Type,
+  Upload,
+  AlignLeft,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -11,238 +20,352 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { Button } from "../ui/button";
+import { Textarea } from "../ui/textarea"; // Make sure you have this component
 import { Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useChat } from "@ai-sdk/react";
-import { useAuth } from "@clerk/nextjs";
-import { set } from "date-fns";
+import { generateFlashcardsContent } from "@/actions/generateflashcards";
 
-interface FlashcardAIGenerateDialogProps {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   folderId: Id<"folders">;
 }
 
-const FlashcardAIGenerateDialog = ({
+export default function FlashcardAIGenerateDialog({
   open,
   onOpenChange,
   folderId,
-}: FlashcardAIGenerateDialogProps) => {
-  const folder = useQuery(api.folders.getFolderById, { folderId: folderId });
-  const [topic, setTopic] = useState("");
-  const [description, setDescription] = useState("");
-  const [isMultipleChoice, setIsMultipleChoice] = useState(true);
-  const [numberOfOptions, setNumberOfOptions] = useState(4);
+}: Props) {
+  const saveFlashcards = useMutation(api.flashcards.saveAiFlashcards);
   const [numberOfFlashcards, setNumberOfFlashcards] = useState(5);
+  const limitStatus = useQuery(api.subscriptions.canGenerateFlashcard, {
+    count: numberOfFlashcards,
+  });
+
+  const [activeTab, setActiveTab] = useState("topic");
+
+  // Inputs
+  const [topic, setTopic] = useState("");
+  const [description, setDescription] = useState(""); // <--- RESTORED
+  const [manualText, setManualText] = useState(""); // <--- NEW
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Settings
+
+  const [isMultipleChoice, setIsMultipleChoice] = useState(true);
+  const [numberOfOptions, setNumberOfOptions] = useState(4); // <--- RESTORED
+
   const [isGenerating, setIsGenerating] = useState(false);
-  const { messages, sendMessage, status, regenerate, error } = useChat();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { getToken } = useAuth();
   const handleGenerate = async () => {
-    if (!topic.trim()) {
-      toast.error("Please enter a topic");
+    if (limitStatus && !limitStatus.allowed) {
+      toast.error("Daily flashcard limit reached.");
       return;
     }
 
-    if (numberOfFlashcards < 1 || numberOfFlashcards > 20) {
-      toast.error("Number of flashcards must be between 1 and 20");
-      return;
-    }
-
-    if (isMultipleChoice && (numberOfOptions < 2 || numberOfOptions > 6)) {
-      toast.error("Number of options must be between 2 and 6");
-      return;
-    }
+    // Validation
+    if (activeTab === "topic" && !topic.trim())
+      return toast.error("Please enter a topic");
+    if (activeTab === "text" && !manualText.trim())
+      return toast.error("Please paste some text");
+    if (activeTab === "youtube" && !youtubeUrl.trim())
+      return toast.error("Please enter a URL");
+    if (activeTab === "pdf" && !selectedFile)
+      return toast.error("Please select a PDF");
 
     setIsGenerating(true);
-    const token = await getToken({ template: "convex" });
-    try {
-      sendMessage(
-        {
-          text: `Generate ${numberOfFlashcards} flashcards for the topic "${topic}" with ${isMultipleChoice ? numberOfOptions : "no"} options. ${description}`,
-          files: [], //to do add file upload to generate flashcard based on the files
-        },
-        {
-          body: {
-            webSearch: false,
-            contextFolder: folder,
-            convexToken: token,
-          },
-        }
-      );
 
-      if (status === "ready") {
-        setIsGenerating(false);
-        toast.success("Flashcards generated successfully");
-        handleClose();
+    try {
+      const formData = new FormData();
+      formData.append("count", numberOfFlashcards.toString());
+      formData.append("isMcq", isMultipleChoice.toString());
+      formData.append("optionsCount", numberOfOptions.toString());
+      formData.append("description", description);
+
+      // Handle Types
+      if (activeTab === "topic") {
+        formData.append("type", "topic");
+        formData.append("topic", topic);
+      } else if (activeTab === "text") {
+        formData.append("type", "text");
+        formData.append("text", manualText);
+        formData.append("topic", topic || "Custom Text"); // Fallback topic
+      } else if (activeTab === "youtube") {
+        formData.append("type", "youtube");
+        formData.append("url", youtubeUrl);
+        formData.append("topic", topic || "Video Content");
+      } else if (activeTab === "pdf") {
+        formData.append("type", "pdf");
+        if (selectedFile) formData.append("file", selectedFile);
+        formData.append("topic", topic || selectedFile?.name || "Document");
       }
+
+      const generatedCards = await generateFlashcardsContent(formData);
+
+      await saveFlashcards({
+        folderId,
+        flashcards: generatedCards,
+        isMultipleChoice,
+      });
+
+      toast.success(`Created ${generatedCards.length} flashcards!`);
+      onOpenChange(false);
+      resetForm();
     } catch (error) {
-      console.error("Error generating flashcards:", error);
+      console.error(error);
       toast.error(
-        error instanceof Error ? error.message : "Failed to generate flashcards"
+        "Failed to generate. " + (error instanceof Error ? error.message : "")
       );
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleClose = () => {
-    if (!isGenerating) {
-      setTopic("");
-      setDescription("");
-      setIsMultipleChoice(true);
-      setNumberOfOptions(4);
-      setNumberOfFlashcards(5);
-      onOpenChange(false);
-    }
+  const resetForm = () => {
+    setTopic("");
+    setDescription("");
+    setManualText("");
+    setYoutubeUrl("");
+    setSelectedFile(null);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-hidden ">
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!isGenerating) onOpenChange(val);
+      }}
+    >
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2 text-2xl font-semibold">
-              <Sparkles className="h-6 w-6 text-primary" />
-              AI Flashcard Generator
-            </DialogTitle>
-          </div>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Sparkles className="h-5 w-5 text-primary" />
+            AI Flashcard Generator
+          </DialogTitle>
           <DialogDescription>
-            Let AI create flashcards for you based on any topic
+            Generate study cards from any source material.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Topic Input */}
-          <div className="space-y-2">
-            <Label htmlFor="topic">Topic</Label>
-            <Input
-              id="topic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., World War II, Python Programming, Biology..."
-              disabled={isGenerating}
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter the subject or topic you want to study
-            </p>
-          </div>
+        <Tabs
+          defaultValue="topic"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-4 mb-4">
+            <TabsTrigger value="topic">
+              <Type className="w-4 h-4 md:mr-2" />{" "}
+              <span className="hidden md:inline">Topic</span>
+            </TabsTrigger>
+            <TabsTrigger value="text">
+              <AlignLeft className="w-4 h-4 md:mr-2" />{" "}
+              <span className="hidden md:inline">Text</span>
+            </TabsTrigger>
+            <TabsTrigger value="youtube">
+              <Youtube className="w-4 h-4 md:mr-2" />{" "}
+              <span className="hidden md:inline">Video</span>
+            </TabsTrigger>
+            <TabsTrigger value="pdf">
+              <FileText className="w-4 h-4 md:mr-2" />{" "}
+              <span className="hidden md:inline">PDF</span>
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Description Input (Optional) */}
+          <div className="space-y-4 py-2 min-h-[150px]">
+            {/* 1. TOPIC TAB */}
+            <TabsContent value="topic" className="space-y-3 mt-0">
+              <Label>Subject / Topic</Label>
+              <Input
+                placeholder="e.g. Photosynthesis, WWII, React Hooks..."
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                disabled={isGenerating}
+                autoFocus
+              />
+            </TabsContent>
+
+            {/* 2. TEXT TAB (NEW) */}
+            <TabsContent value="text" className="space-y-3 mt-0">
+              <div className="grid gap-2">
+                <Label>Topic Name (Optional)</Label>
+                <Input
+                  placeholder="e.g. My Lecture Notes"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Paste Content</Label>
+                <Textarea
+                  placeholder="Paste your notes, article, or summary here..."
+                  value={manualText}
+                  onChange={(e) => setManualText(e.target.value)}
+                  className="min-h-[120px]"
+                  disabled={isGenerating}
+                />
+              </div>
+            </TabsContent>
+
+            {/* 3. YOUTUBE TAB */}
+            <TabsContent value="youtube" className="space-y-3 mt-0">
+              <div className="grid gap-2">
+                <Label>Topic Name (Optional)</Label>
+                <Input
+                  placeholder="e.g. History Documentary"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>YouTube URL</Label>
+                <Input
+                  placeholder="https://youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  disabled={isGenerating}
+                />
+              </div>
+            </TabsContent>
+
+            {/* 4. PDF TAB */}
+            <TabsContent value="pdf" className="space-y-3 mt-0">
+              <div className="grid gap-2">
+                <Label>Topic Name (Optional)</Label>
+                <Input
+                  placeholder="e.g. Biology Textbook Ch.4"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                />
+              </div>
+              <div
+                className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {selectedFile ? (
+                  <div className="flex items-center gap-2 text-primary font-medium ">
+                    <FileText className="h-5 w-5" />
+
+                    {selectedFile.name}
+                    <Button
+                      variant="ghost"
+                      className=""
+                      onClick={() => setSelectedFile(null)}
+                      disabled={isGenerating}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <span className="text-sm text-muted-foreground">
+                      Click to upload PDF
+                    </span>
+                  </>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="application/pdf"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            </TabsContent>
+          </div>
+        </Tabs>
+
+        {/* GLOBAL SETTINGS (Applies to all tabs) */}
+        <div className="bg-muted/30 p-4 rounded-lg space-y-4 border mt-2">
+          {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="description" className="flex items-center gap-2">
-              Description
+            <Label className="flex items-center justify-between">
+              Instructions / Focus
               <span className="text-xs text-muted-foreground font-normal">
-                (Optional)
+                Optional
               </span>
             </Label>
             <Input
-              id="description"
+              placeholder="e.g. Focus on dates, vocab, or specific concepts..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., Focus on arrays and functions, Include LIFO/FIFO concepts..."
-              disabled={isGenerating}
-            />
-            <p className="text-xs text-muted-foreground">
-              Add specific focus areas or requirements for more targeted
-              flashcards
-            </p>
-          </div>
-
-          {/* Number of Flashcards */}
-          <div className="space-y-2">
-            <Label htmlFor="count">Number of Flashcards</Label>
-            <Input
-              id="count"
-              type="number"
-              min="1"
-              max="20"
-              value={numberOfFlashcards}
-              onChange={(e) =>
-                setNumberOfFlashcards(parseInt(e.target.value) || 5)
-              }
-              disabled={isGenerating}
-            />
-            <p className="text-xs text-muted-foreground">
-              How many flashcards to generate (1-20)
-            </p>
-          </div>
-
-          {/* Multiple Choice Toggle */}
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div className="space-y-0.5">
-              <Label htmlFor="ai-multiple-choice" className="text-base">
-                Multiple Choice
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Generate multiple choice questions
-              </p>
-            </div>
-            <Switch
-              id="ai-multiple-choice"
-              checked={isMultipleChoice}
-              onCheckedChange={setIsMultipleChoice}
               disabled={isGenerating}
             />
           </div>
 
-          {/* Number of Options (only for multiple choice) */}
-          {isMultipleChoice && (
+          <div className="grid grid-cols-2 gap-4">
+            {/* Count */}
             <div className="space-y-2">
-              <Label htmlFor="options">Number of Options</Label>
+              <Label>Amount</Label>
               <Input
-                id="options"
                 type="number"
-                min="2"
-                max="6"
-                value={numberOfOptions}
-                onChange={(e) =>
-                  setNumberOfOptions(parseInt(e.target.value) || 4)
-                }
+                min={1}
+                max={20}
+                value={numberOfFlashcards}
+                onChange={(e) => setNumberOfFlashcards(Number(e.target.value))}
                 disabled={isGenerating}
               />
-              <p className="text-xs text-muted-foreground">
-                Options per question (2-6, default is 4)
-              </p>
             </div>
-          )}
 
-          {/* AI Info Box */}
-          <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-            <Brain className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium">Powered by Gemini AI</p>
-              <p className="text-xs text-muted-foreground">
-                AI will generate {numberOfFlashcards}{" "}
-                {isMultipleChoice ? "multiple choice" : "written answer"}{" "}
-                flashcard{numberOfFlashcards !== 1 ? "s" : ""} about{" "}
-                {topic || "your topic"}
-                {description && (
-                  <span className="block mt-1">
-                    <span className="font-medium">Focus:</span> {description}
-                  </span>
-                )}
-              </p>
+            {/* MCQ Toggle */}
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <div className="flex items-center justify-between border rounded-md px-3 h-10 bg-background">
+                <span className="text-sm">
+                  {isMultipleChoice ? "Multiple Choice" : "Q & A"}
+                </span>
+                <Switch
+                  checked={isMultipleChoice}
+                  onCheckedChange={setIsMultipleChoice}
+                  disabled={isGenerating}
+                />
+              </div>
             </div>
           </div>
+
+          {/* Option Count (Conditional) */}
+          {isMultipleChoice && (
+            <div className="space-y-2 animate-in slide-in-from-top-2">
+              <Label>Options per Question</Label>
+              <div className="flex items-center gap-2">
+                {[2, 3, 4, 5].map((num) => (
+                  <Button
+                    key={num}
+                    type="button"
+                    variant={numberOfOptions === num ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNumberOfOptions(num)}
+                    className="flex-1"
+                  >
+                    {num}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter>
           <Button
             variant="outline"
-            onClick={handleClose}
+            onClick={() => onOpenChange(false)}
             disabled={isGenerating}
           >
             Cancel
           </Button>
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !topic.trim()}
+            disabled={isGenerating}
+            className="min-w-[140px]"
           >
             {isGenerating ? (
               <>
@@ -251,8 +374,8 @@ const FlashcardAIGenerateDialog = ({
               </>
             ) : (
               <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Generate Flashcards
+                <Brain className="mr-2 h-4 w-4" />
+                Generate
               </>
             )}
           </Button>
@@ -260,6 +383,4 @@ const FlashcardAIGenerateDialog = ({
       </DialogContent>
     </Dialog>
   );
-};
-
-export default FlashcardAIGenerateDialog;
+}

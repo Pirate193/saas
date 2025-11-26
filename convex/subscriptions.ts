@@ -212,33 +212,40 @@ export const canUploadFile = query({
 
 // // Check if user can generate flashcards
 export const canGenerateFlashcard = query({
-  args: {},
-  handler:async (ctx) => {
-    const user = await ctx.auth.getUserIdentity();
-    if(!user){
-      throw new Error("Not authenticated");
-    } 
+  args: {count:v.optional(v.number())},
+  handler:async (ctx,args) => {
+   const user = await ctx.auth.getUserIdentity();
+    if (!user) throw new Error("Not authenticated");
+
     const subscription = await ctx.runQuery(api.subscriptions.getSubscription);
-    if(subscription.isPro){
-      return {
-        allowed:true,
-        reason:null
-      }
+    
+    // Pro users are unlimited
+    if (subscription.isPro) {
+      return { allowed: true, reason: null };
     }
-    const remaining = await ctx.db.query('usageTracking').withIndex('by_user',(q)=>q.eq('userId',user.subject)).first();
-    const flashcardsGenerated = remaining?.dailyFlashcardsGenerated || 0;
-    if(subscription.isFree && flashcardsGenerated >= LIMITS.FREE_DAILY_FLASHCARDS){
+
+    // Free users check
+    const countNeeded = args.count || 1;
+    const usage = await ctx.db
+      .query("usageTracking")
+      .withIndex("by_user", (q) => q.eq("userId", user.subject))
+      .first();
+
+    const currentUsage = usage?.dailyFlashcardsGenerated || 0;
+    
+    // Check if adding the new cards exceeds the limit
+    if (currentUsage + countNeeded > LIMITS.FREE_DAILY_FLASHCARDS) {
+      const remaining = Math.max(0, LIMITS.FREE_DAILY_FLASHCARDS - currentUsage);
       return {
-        allowed:false,
-        reason:"free_limit_reached",
-        flashcardsGenerated:flashcardsGenerated,
-        flashcardsLimit:LIMITS.FREE_DAILY_FLASHCARDS
-      }
+        allowed: false,
+        reason: `Daily limit reached. You have ${remaining} generations left today.`,
+        flashcardsGenerated: currentUsage,
+        flashcardsLimit: LIMITS.FREE_DAILY_FLASHCARDS,
+      };
     }
-    return {
-      allowed:true,
-      reason:null
-    }   
+
+    return { allowed: true, reason: null };
+  
   },
 });
 
@@ -345,8 +352,8 @@ export const trackFileUpload = mutation({
 
 // Track flashcard generation
 export const trackFlashcardGeneration = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {count:v.number()},
+  handler: async (ctx,args) => {
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
       throw new Error("Not authenticated");
@@ -363,7 +370,7 @@ export const trackFlashcardGeneration = mutation({
       await ctx.db.insert("usageTracking", {
         userId: user.subject,
         dailyAiTokens: 0,
-        dailyFlashcardsGenerated: 1,
+        dailyFlashcardsGenerated: args.count,
         lastResetDate: today,
         totalFilesUploaded: 0,
         updatedAt: now,
@@ -376,13 +383,13 @@ export const trackFlashcardGeneration = mutation({
     if (usage.lastResetDate !== today) {
       await ctx.db.patch(usage._id, {
         dailyAiTokens: 0,
-        dailyFlashcardsGenerated: 1,
+        dailyFlashcardsGenerated: args.count,
         lastResetDate: today,
         updatedAt: Date.now(),
       });
     } else {
       await ctx.db.patch(usage._id, {
-        dailyFlashcardsGenerated: usage.dailyFlashcardsGenerated + 1,
+        dailyFlashcardsGenerated: usage.dailyFlashcardsGenerated + args.count,
         updatedAt: Date.now(),
       });
     }

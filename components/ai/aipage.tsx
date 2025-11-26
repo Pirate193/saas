@@ -75,7 +75,9 @@ import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
 import {
   CreateFlashcard,
   CreateNote,
+  CreateWhiteboard,
   GenerateCodeSnippet,
+  GenerateMermaidDiagram,
   GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
@@ -484,6 +486,25 @@ const Chat = ({ chatId }: Props) => {
                       <div>
                         {part.state === "output-available" && (
                           <GenerateCodeSnippet output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-generateMermaidDiagram") {
+                    return (
+                      <div>
+                        mermaid
+                        {part.state === "output-available" && (
+                          <GenerateMermaidDiagram output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-createWhiteboard") {
+                    return (
+                      <div>
+                        {part.state === "output-available" && (
+                          <CreateWhiteboard output={part.output} />
                         )}
                       </div>
                     );

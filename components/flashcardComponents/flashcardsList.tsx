@@ -70,34 +70,57 @@ export default function FlashcardList({ folderId }: FlashcardListProps) {
   const flashcards = useQuery(api.flashcards.fetchFlashcards, {
     folderId: folderId,
   });
+  const flashcardsdue = useQuery(api.flashcards.fetchflashcarddue, {
+    folderId: folderId,
+  });
+  const folder = useQuery(api.folders.getFolderById, { folderId: folderId });
   const deleteFlashcard = useMutation(api.flashcards.deleteFlashcard);
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [flashcardToDelete, setFlashcardToDelete] =
     useState<Id<"flashcards"> | null>(null);
   const [openCreateFlashcardDialog, setOpenCreateFlashcardDialog] =
     useState(false);
-  const [studymode, setstudymode] = useState(false);
-  const [currentIndex, setcurrentIndex] = useState(0);
-  const flashcardsdue = useQuery(api.flashcards.fetchflashcarddue, {
-    folderId: folderId,
-  });
   const [openAiFlashcards, setOpenAiFlashcards] = useState(false);
 
-  const [currentFlashcard, setCurrentFlashcard] =
-    useState<Id<"flashcards"> | null>(null);
-  const folder = useQuery(api.folders.getFolderById, { folderId: folderId });
+  // Study Mode State
+  const [studymode, setstudymode] = useState(false);
+  const [currentIndex, setcurrentIndex] = useState(0);
+
+  // NEW: Holds the specific list we are currently studying (Due vs All)
+  // This prevents index mismatch errors
+  const [studySessionCards, setStudySessionCards] = useState<any[]>([]);
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
       setcurrentIndex(currentIndex - 1);
     }
   };
+
+  const handleNext = () => {
+    if (currentIndex < studySessionCards.length - 1) {
+      setcurrentIndex(currentIndex + 1);
+    }
+  };
+
   const handleDelete = async () => {
     if (!flashcardToDelete) return;
     await deleteFlashcard({ flashcardId: flashcardToDelete });
     setDeleteDialogOpen(false);
     setFlashcardToDelete(null);
   };
+
+  const handleStartStudy = async () => {
+    if (flashcardsdue && flashcardsdue?.length > 0) {
+      // When studying due cards, we use the DUE list
+      setStudySessionCards(flashcardsdue);
+      setcurrentIndex(0);
+      setstudymode(true);
+    } else {
+      toast.info("No cards due for review right now");
+    }
+  };
+
   if (flashcards === undefined || flashcardsdue === undefined) {
     return (
       <div className="space-y-4">
@@ -107,27 +130,23 @@ export default function FlashcardList({ folderId }: FlashcardListProps) {
       </div>
     );
   }
-  const handleNext = () => {
-    if (currentIndex < flashcardsdue?.length - 1) {
-      setcurrentIndex(currentIndex + 1);
+
+  // UPDATED: Check studySessionCards instead of flashcardsdue
+  if (studymode && studySessionCards.length > 0) {
+    // Safety check: ensure index is valid
+    const activeCard = studySessionCards[currentIndex];
+    if (!activeCard) {
+      setstudymode(false); // Reset if something goes wrong
+      return null;
     }
-  };
-  const handleStartStudy = async () => {
-    if (flashcardsdue && flashcardsdue?.length > 0) {
-      setcurrentIndex(0);
-      setstudymode(true);
-    } else {
-      toast.info("No cards due for review right now ");
-    }
-  };
-  if (studymode && flashcardsdue && flashcardsdue?.length > 0) {
+
     return (
       <div className="space-y-6 max-h-[calc(100vh-2rem)] overflow-y-auto scrollbar-hidden">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Study Mode</h2>
             <p className="text-sm text-muted-foreground">
-              Card {currentIndex + 1}of {flashcardsdue.length}
+              Card {currentIndex + 1} of {studySessionCards.length}
             </p>
           </div>
           <Button
@@ -135,6 +154,7 @@ export default function FlashcardList({ folderId }: FlashcardListProps) {
             onClick={() => {
               setcurrentIndex(0);
               setstudymode(false);
+              setStudySessionCards([]); // Clear session
             }}
           >
             Exit Study Mode
@@ -143,13 +163,14 @@ export default function FlashcardList({ folderId }: FlashcardListProps) {
         <FlashcardViewer
           onNext={handleNext}
           onPrevious={handlePrevious}
-          hasNext={currentIndex < flashcardsdue.length - 1}
+          hasNext={currentIndex < studySessionCards.length - 1}
           hasPrevious={currentIndex > 0}
-          flashcardId={flashcardsdue[currentIndex]._id}
+          flashcardId={activeCard._id}
         />
       </div>
     );
   }
+
   return (
     <div className="space-y-6 overflow-y-auto ">
       {/* header */}
@@ -256,7 +277,10 @@ export default function FlashcardList({ folderId }: FlashcardListProps) {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
                         onClick={() => {
-                          setCurrentFlashcard(flashcard._id);
+                          // UPDATED LOGIC:
+                          // When studying a specific card, use the MAIN flashcards list
+                          // This ensures the index matches perfectly.
+                          setStudySessionCards(flashcards);
                           setcurrentIndex(flashcards.indexOf(flashcard));
                           setstudymode(true);
                         }}

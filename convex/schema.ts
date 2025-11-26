@@ -76,6 +76,7 @@ export default defineSchema({
     })),
     isMultipleChoice:v.boolean(),
     updatedAt:v.number(),
+    explanation:v.optional(v.string()),
     templateId:v.optional(v.id('flashcards')),
    }) 
    .index("by_folder",["folderId"]),

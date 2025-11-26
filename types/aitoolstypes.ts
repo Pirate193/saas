@@ -67,6 +67,16 @@ export const generateCodeSnippetOutputSchema = successSchema.extend({
   description: z.string().optional(),
 
 });
+export const generateMermaidDiagramOutputSchema = successSchema.extend({
+  title: z.string(),
+  diagram: z.string(),
+  description: z.string().optional(),
+});
+export const createWhiteboardOutputSchema = successSchema.extend({
+  id: z.string(),
+  title: z.string(),
+  message: z.string(),
+});
 
 export type GenerateCodeSnippetOutput = z.infer<typeof generateCodeSnippetOutputSchema>;
 
@@ -77,6 +87,8 @@ export type GenerateFlashcardOutput = z.infer<typeof generateFlashcardOutputSche
 export type GetFlashcardOutput = z.infer<typeof getFlashcardOutputSchema>;
 export type CreateFolderOutput = z.infer<typeof createFolderOutputSchema>;
 export type UpdateFolderOutput = z.infer<typeof updateFolderOutputSchema>;
+export type GenerateMermaidDiagramOutput = z.infer<typeof generateMermaidDiagramOutputSchema>;
+export type CreateWhiteboardOutput = z.infer<typeof createWhiteboardOutputSchema>;
 // For types with Convex Docs, we can be more specific
 export type GetFolderItemsOutput = {
   success: true;

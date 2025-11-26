@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  serverExternalPackages: ["yjs"],
+  serverExternalPackages: ["yjs","pdf-parse"],
   //  typescript: {
   //       // !! WARN !!
   //       // Dangerously allow production builds to successfully complete even if
