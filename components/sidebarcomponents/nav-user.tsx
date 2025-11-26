@@ -3,6 +3,7 @@
 import {
   BadgeCheck,
   Bell,
+  Bug,
   ChevronsUpDown,
   CreditCard,
   LogOut,
@@ -38,6 +39,7 @@ import SubscriptionDialog from "../subscription/subscription-dialog";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Badge } from "../ui/badge";
+import BillingDialog from "../subscription/billing-dialog";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -50,6 +52,7 @@ export function NavUser() {
   // 4. ADD state to control your modal
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [SubscriptionDialogOpen, setSubscriptionDialogOpen] = useState(false);
+  const [BillingDialogOpen, setBillingDialogOpen] = useState(false);
 
   // Loading state
   if (!isLoaded) {
@@ -173,17 +176,15 @@ export function NavUser() {
                   <BadgeCheck className="mr-2 h-4 w-4" />
                   Account
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => console.log("open billing modal")}
-                >
+                <DropdownMenuItem onClick={() => setBillingDialogOpen(true)}>
                   <CreditCard className="mr-2 h-4 w-4" />
                   Billing
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => console.log("open notifications modal")}
                 >
-                  <Bell className="mr-2 h-4 w-4" />
-                  Notifications
+                  <Bug className="mr-2 h-4 w-4" />
+                  Report Bug
                 </DropdownMenuItem>
               </DropdownMenuGroup>
 
@@ -210,6 +211,10 @@ export function NavUser() {
       <SubscriptionDialog
         isOpen={SubscriptionDialogOpen}
         onOpenChange={setSubscriptionDialogOpen}
+      />
+      <BillingDialog
+        open={BillingDialogOpen}
+        onOpenChange={setBillingDialogOpen}
       />
     </>
   );

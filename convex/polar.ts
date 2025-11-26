@@ -1,5 +1,6 @@
 import { Polar } from "@convex-dev/polar";
 import { api, components } from "./_generated/api";
+import { query } from "./_generated/server";
 
 export const polar = new Polar(components.polar,{
     products:{
@@ -22,3 +23,32 @@ export const {
   changeCurrentSubscription,//Changes the current subscription to the given product ID.
   cancelCurrentSubscription,//Cancels the current subscription.
 }= polar.api();
+
+export const getsubscriptionstatus = query({
+    args:{
+
+    },
+    handler:async (ctx)=>{
+        const user = await ctx.auth.getUserIdentity();
+        if(!user){
+           return null;
+        }
+        const subscription = await polar.getCurrentSubscription(ctx,{userId:user.subject})
+        if(!subscription){
+            return{
+                isPro:false,
+                planName:"Free",
+                renewDate:null
+            }
+        }
+        if(!subscription.currentPeriodEnd) return null;
+        const renewaldate = subscription.cancelAtPeriodEnd ? new Date(parseInt(subscription.currentPeriodEnd) * 1000).toLocaleDateString():null;
+        return{
+            isPro: true,
+            planName:subscription.product.name,
+            renewDate:renewaldate,
+            cancelAtPeriodEnd:subscription.cancelAtPeriodEnd
+        }
+
+    }
+})
