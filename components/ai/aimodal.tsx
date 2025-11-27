@@ -78,14 +78,21 @@ import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
 import {
   CreateFlashcard,
   CreateNote,
+  GenerateCodeSnippet,
+  GenerateMermaidDiagram,
   GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
+  LoadingCodeSnippet,
+  LoadingMermaidDiagram,
+  SourceGrid,
   UpdateNote,
+  YouTubeEmbed,
 } from "@/components/ai/tools";
 import { UIMessage } from "ai";
 import { ChatHistoryPopover } from "./chathistorymodal";
 import { Button } from "../ui/button";
+import { Spinner } from "../ui/spinner";
 
 const suggestions: { key: string; value: string }[] = [
   { key: nanoid(), value: "Help with homework" },
@@ -184,11 +191,7 @@ export default function AiModal() {
       },
     });
   useEffect(() => {
-    if (
-      initialMessages &&
-      initialMessages.length > 0 &&
-      !hasInitialized.current
-    ) {
+    if (initialMessages && !hasInitialized.current) {
       hasInitialized.current = true;
       const transformedMessages = initialMessages.map((msg) => ({
         id: msg._id,
@@ -294,6 +297,10 @@ export default function AiModal() {
       }
     );
   };
+  useEffect(() => {
+    hasInitialized.current = false; // Allow the new chat to load
+    setMessages([]); // Clear old messages immediately to avoid "ghosting"
+  }, [activeChatId, setMessages]);
 
   return (
     <div className="flex flex-col h-full p-2 ">
@@ -489,6 +496,64 @@ export default function AiModal() {
                           )}
                         </ToolContent>
                       </Tool>
+                    );
+                  }
+                  if (part.type === "tool-searchTheWeb") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <div className="flex items-center gap-2">
+                            <Spinner /> <p>Searching the Web</p>
+                          </div>
+                        )}
+                        {part.state === "output-available" && (
+                          <SourceGrid output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-getNoteContent") {
+                    return (
+                      <Tool key={`${message.id}-${i}`}>
+                        <ToolHeader
+                          state={part.state}
+                          type="tool-getNoteContent"
+                          title="Fetching Note Content"
+                        />
+                      </Tool>
+                    );
+                  }
+                  if (part.type === "tool-generateCodeSnippet") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingCodeSnippet title="Generating Code" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GenerateCodeSnippet output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-generateMermaidDiagram") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingMermaidDiagram title="Generating Mermaid Diagram" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GenerateMermaidDiagram output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-youtubeVideo") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "output-available" && (
+                          <YouTubeEmbed output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 

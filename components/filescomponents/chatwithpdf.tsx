@@ -70,12 +70,22 @@ import { ChatHistoryPopover } from "../ai/chathistorymodal";
 import {
   CreateFlashcard,
   CreateNote,
+  GenerateCodeSnippet,
+  GenerateMermaidDiagram,
   GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
+  LoadingCodeSnippet,
+  LoadingFlashcard,
+  LoadingMermaidDiagram,
+  LoadingNote,
+  SourceGrid,
+  SourceGridWithPdf,
   UpdateNote,
+  YouTubeEmbed,
 } from "../ai/tools";
 import { Tool, ToolContent, ToolHeader } from "../ai-elements/tool";
+import { Spinner } from "../ui/spinner";
 interface ChatwithpdfProps {
   fileId: Id<"files">;
 }
@@ -136,6 +146,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
   // +++ DATA FOR TAGGING UI +++
   const allFolders = useQuery(api.folders.fetchFolders);
   const allNotes = useQuery(api.notes.fetchNotes); // Fetches all notes
+  const generateSmartTitle = useAction(api.chat.generateChatTitle);
 
   // Filtered data for the command list
   const filteredFolders = allFolders?.filter(
@@ -241,6 +252,10 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
           messageText.slice(0, 50) + (messageText.length > 50 ? "..." : "");
         currentchatId = await createChat({ title });
         setActiveChatId(currentchatId);
+        generateSmartTitle({
+          chatId: currentchatId as Id<"chats">,
+          userPrompt: messageText,
+        });
         console.log(" Chat created:", currentchatId);
         await addMessage({
           chatId: currentchatId as Id<"chats">,
@@ -275,6 +290,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
               fileName: file?.file.fileName,
               fileType: file?.file.fileType,
             },
+            fileId: file?.file._id,
             webSearch,
             studyMode,
             thinking,
@@ -310,6 +326,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
                 fileName: file?.file.fileName,
                 fileType: file?.file.fileType,
               },
+              fileId: file?.file._id,
               webSearch,
               studyMode,
               thinking,
@@ -399,52 +416,40 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
                   }
                   if (part.type === "tool-createNote") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-createNote"
-                          title="Creating Note"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <CreateNote output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingNote title="Creating Note" />
+                        )}
+                        {part.state === "output-available" && (
+                          <CreateNote output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-updateNote") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-updateNote"
-                          title="Updating Note"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <UpdateNote output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingNote title="Updating Note" />
+                        )}
+                        {part.state === "output-available" && (
+                          <UpdateNote output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-generateFlashcards") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-generateFlashcards"
-                          title="Creating Flashcard"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <CreateFlashcard output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Generating Flashcards" />
+                        )}
+                        {part.state === "output-available" && (
+                          <CreateFlashcard output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
@@ -467,35 +472,100 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
 
                   if (part.type === "tool-getUserFlashcards") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-getUserFlashcards"
-                          title="Fetching Flashcards"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <GetUserFlashcards output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Fetching Flashcards" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GetUserFlashcards output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-getFlashcard") {
                     return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Fetching Flashcard" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GetFlashcard output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-searchTheWeb") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <div className="flex items-center gap-2">
+                            <Spinner /> <p>Searching the Web</p>
+                          </div>
+                        )}
+                        {part.state === "output-available" && (
+                          <SourceGrid output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-getNoteContent") {
+                    return (
                       <Tool key={`${message.id}-${i}`}>
                         <ToolHeader
                           state={part.state}
-                          type="tool-getFlashcard"
-                          title="Analyzing Flashcard"
+                          type="tool-getNoteContent"
+                          title="Fetching Note Content"
                         />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <GetFlashcard output={part.output} />
-                          )}
-                        </ToolContent>
                       </Tool>
+                    );
+                  }
+                  if (part.type === "tool-generateCodeSnippet") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingCodeSnippet title="Generating Code" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GenerateCodeSnippet output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-generateMermaidDiagram") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingMermaidDiagram title="Generating Mermaid Diagram" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GenerateMermaidDiagram output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (part.type === "tool-youtubeVideo") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "output-available" && (
+                          <YouTubeEmbed output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (part.type === "tool-searchWithPdf") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <div className="flex items-center gap-2">
+                            <Spinner /> <p> Studying PDF...</p>
+                          </div>
+                        )}
+                        {part.state === "output-available" && (
+                          <SourceGridWithPdf output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 

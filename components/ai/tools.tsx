@@ -17,6 +17,8 @@ import {
   Layers,
   Network,
   PenTool,
+  PlaySquare,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
@@ -32,8 +34,14 @@ import {
   generateCodeSnippetOutputSchema,
   generateMermaidDiagramOutputSchema,
   createWhiteboardOutputSchema,
+  youtubeVideoOutputSchema,
+  createFolderOutputSchema,
+  updateFolderOutputSchema,
+  searchWebOutputSchema,
+  searchWithPdfOutputSchema,
 } from "@/types/aitoolstypes";
 import { useCanvasStore } from "@/stores/canvasStore";
+import { Spinner } from "../ui/spinner";
 
 const FLASHCARD_BASE_CLASSES =
   "group relative flex flex-col items-center justify-center text-center min-h-[200px] w-full max-w-sm p-6 my-4 rounded-3xl bg-card border border-border shadow-sm hover:shadow-md hover:scale-[1.02] transition-all cursor-pointer select-none";
@@ -84,6 +92,24 @@ export const CreateNote = ({ output }: { output: unknown }) => {
   );
 };
 
+export const LoadingNote = ({ title }: { title: string }) => {
+  return (
+    <div className="inline-flex items-center gap-3 px-4 py-3 my-2 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer shadow-sm select-none">
+      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/10">
+        <Notebook className="h-4 w-4 text-blue-500" />
+      </div>
+
+      <div className="flex flex-col">
+        <span className="text-sm font-medium text-foreground">
+          {" "}
+          <Spinner className="size-4" />
+          {title}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 // UpdateNote Component (This was correct)
 export const UpdateNote = ({ output }: { output: unknown }) => {
   const { openNote } = useCanvasStore();
@@ -113,7 +139,20 @@ export const UpdateNote = ({ output }: { output: unknown }) => {
     </div>
   );
 };
+export const LoadingFlashcard = ({ title }: { title: string }) => {
+  return (
+    <div className={FLASHCARD_BASE_CLASSES}>
+      {/* Subtle Icon Background */}
+      <div className="absolute top-4 right-4 opacity-10">
+        <BrainCircuit className="h-12 w-12 text-primary" />
+      </div>
 
+      {/* The Question Text */}
+      <Spinner className="size-6" />
+      <h3 className={FLASHCARD_TEXT_CLASSES}>{title} </h3>
+    </div>
+  );
+};
 export const CreateFlashcard = ({ output }: { output: unknown }) => {
   const parsed = useMemo(
     () => generateFlashcardOutputSchema.safeParse(output),
@@ -219,6 +258,35 @@ export const GetFlashcard = ({ output }: { output: unknown }) => {
   );
 };
 
+export const LoadingCodeSnippet = ({ title }: { title: string }) => {
+  return (
+    <div className={ARTIFACT_BASE_CLASSES}>
+      {/* HEADER */}
+      <div className={ARTIFACT_HEADER_CLASSES}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-muted rounded-md border border-border">
+            <Code2 className={`h-5 w-5`} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-semibold">
+              {" "}
+              <Spinner className="size-4" />
+              {title}
+            </span>
+            <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium"></span>
+          </div>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+        >
+          <Terminal className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
 export const GenerateCodeSnippet = ({ output }: { output: unknown }) => {
   const { openCode } = useCanvasStore();
   const parsed = useMemo(
@@ -288,6 +356,30 @@ export const GenerateCodeSnippet = ({ output }: { output: unknown }) => {
         </div>
         {/* Gradient Overlay using theme colors */}
         <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-muted to-transparent" />
+      </div>
+    </div>
+  );
+};
+
+export const LoadingMermaidDiagram = ({ title }: { title: string }) => {
+  return (
+    <div className={ARTIFACT_BASE_CLASSES}>
+      <div className={ARTIFACT_HEADER_CLASSES}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-muted rounded-md border border-border">
+            <Network className="h-5 w-5 text-blue-500" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-base font-semibold">
+              {" "}
+              <Spinner className="size-4" />
+              {title}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {"Interactive Diagram"}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -381,3 +473,210 @@ export const CreateWhiteboard = ({ output }: { output: unknown }) => {
     </div>
   );
 };
+
+export const YouTubeEmbed = ({ output }: { output: unknown }) => {
+  const { openVideo } = useCanvasStore();
+  const parsed = useMemo(
+    () => youtubeVideoOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+  return (
+    <div className="rounded-xl overflow-hidden border border-border bg-card my-2 shadow-sm">
+      <div className="p-2 flex flex-col  gap-2">
+        <div className="flex items-center justify-between">
+          <p>{data.title} </p>
+          <Button
+            onClick={() =>
+              openVideo({ title: data.title, videoId: data.videoId })
+            }
+          >
+            <PlaySquare />
+          </Button>
+        </div>
+
+        <span className="text-xs text-muted-foreground">
+          {data.description}{" "}
+        </span>
+      </div>
+      <div className="aspect-video">
+        <iframe
+          width="100%"
+          height="100%"
+          src={`https://www.youtube.com/embed/${data.videoId}`}
+          title={data.title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="border-0"
+        />
+      </div>
+    </div>
+  );
+};
+
+export const LoadingFolder = ({ title }: { title: string }) => {
+  return (
+    <div className="inline-flex items-center gap-3 px-4 py-3 my-2 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer shadow-sm select-none">
+      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/10">
+        <Folder className="h-4 w-4 text-blue-500" />
+      </div>
+
+      <div className="flex flex-col">
+        <span className="text-sm font-medium text-foreground">
+          <Spinner className="size-4" />
+          {title}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export const CreateFolder = ({ output }: { output: unknown }) => {
+  const parsed = useMemo(
+    () => createFolderOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+  return (
+    <div className="inline-flex items-center gap-3 px-4 py-3 my-2 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer shadow-sm select-none">
+      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/10">
+        <Folder className="h-4 w-4 text-blue-500" />
+      </div>
+
+      <div className="flex flex-col">
+        <span className="text-sm font-medium text-foreground">
+          {data.message}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+export const UpdateFolder = ({ output }: { output: unknown }) => {
+  const parsed = useMemo(
+    () => updateFolderOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+  return (
+    <div className="inline-flex items-center gap-3 px-4 py-3 my-2 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer shadow-sm select-none">
+      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-500/10">
+        <Folder className="h-4 w-4 text-blue-500" />
+      </div>
+
+      <div className="flex flex-col">
+        <span className="text-sm font-medium text-foreground">
+          {data.message}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const getDomain = (url: string) => {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return "unknown";
+  }
+};
+
+export function SourceGrid({ output }: { output: unknown }) {
+  const parsed = useMemo(
+    () => searchWebOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 mb-8">
+      {data?.sources?.map((source, idx) => {
+        const domain = getDomain(source.url);
+        // Using Google's favicon service
+        const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+
+        return (
+          <a
+            key={idx}
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-col justify-between p-3 rounded-lg  bg-card  text-sm leading-snug h-24"
+          >
+            {/* Top: Title */}
+            <span className="font-medium text-foreground line-clamp-2 overflow-hidden text-ellipsis">
+              {source.title}
+            </span>
+
+            {/* Bottom: Favicon + Domain */}
+            <div className="flex items-center gap-2 mt-2">
+              <img
+                src={faviconUrl}
+                alt={domain}
+                className="w-4 h-4 rounded-sm object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/fallback-icon.png";
+                }}
+              />
+              <span className="text-xs text-gray-500 truncate max-w-full">
+                {idx + 1}. {domain}
+              </span>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+export function SourceGridWithPdf({ output }: { output: unknown }) {
+  const parsed = useMemo(
+    () => searchWithPdfOutputSchema.safeParse(output),
+    [output]
+  );
+
+  if (!parsed.success || !parsed.data.success) return null;
+  const { data } = parsed;
+  return (
+    <div className="my-4 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <BookOpen className="h-4 w-4" />
+        <span>Relevant PDF Excerpts</span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {data?.sources?.map((source, i) => (
+          <div
+            key={i}
+            className="flex flex-col rounded-lg border bg-card p-3 text-card-foreground shadow-sm transition-all hover:bg-accent/50"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                  {i + 1}
+                </span>
+              </div>
+              {/* Optional: Show Score */}
+              {/* <span className="text-[10px] text-muted-foreground opacity-50">
+                {Math.round((source.metadata.score || 0) * 100)}% Match
+              </span> */}
+            </div>
+
+            <div className="relative">
+              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                "{source.pageContent}"
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

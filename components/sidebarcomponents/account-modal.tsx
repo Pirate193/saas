@@ -1,15 +1,39 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useUser } from '@clerk/nextjs';
+import * as React from "react";
+import { useUser } from "@clerk/nextjs";
+import { User, Lock, Camera, ShieldX, Loader2, Check } from "lucide-react";
+
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,20 +45,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Camera, ShieldX } from 'lucide-react';
-import { toast } from 'sonner';
-import { Skeleton } from '../ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Separator } from '../ui/separator';
+
+// Navigation Items
+const data = {
+  nav: [
+    { name: "Profile", id: "profile", icon: User },
+    { name: "Security", id: "security", icon: Lock },
+  ],
+};
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -43,102 +61,71 @@ interface AccountModalProps {
 
 export function AccountModal({ isOpen, onOpenChange }: AccountModalProps) {
   const { user, isLoaded } = useUser();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  
-  // State for form fields
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [activeSection, setActiveSection] = React.useState("profile");
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // State for profile picture
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  
-  // Check if any form data has changed
-  const hasChanges = (isLoaded && user) ? 
-    (firstName.trim() !== (user.firstName || '')) ||
-    (lastName.trim() !== (user.lastName || '')) ||
-    !!imageFile // `!!` turns the file (or null) into a boolean
-    : false;
+  // --- Form State ---
+  const [firstName, setFirstName] = React.useState("");
+  const [lastName, setLastName] = React.useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [imageFile, setImageFile] = React.useState<File | null>(null);
 
-  // This effect syncs the form state with the user data from Clerk
-  useEffect(() => {
+  // Sync state when modal opens
+  React.useEffect(() => {
     if (isLoaded && user && isOpen) {
-      setFirstName(user.firstName || '');
-      setLastName(user.lastName || '');
-      // Reset image previews when modal is re-opened
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
       setImagePreview(null);
       setImageFile(null);
+      setActiveSection("profile"); // Reset to profile
     }
   }, [isLoaded, user, isOpen]);
 
-  // Handle new image selection
+  const hasChanges =
+    isLoaded && user
+      ? firstName.trim() !== (user.firstName || "") ||
+        lastName.trim() !== (user.lastName || "") ||
+        !!imageFile
+      : false;
+
+  const authProvider =
+    user?.primaryEmailAddress?.linkedTo?.[0]?.type || "email";
+
+  // --- Handlers ---
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        toast.error("File is too large. Please select an image under 2MB.");
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("Image too large (max 2MB)");
         return;
       }
-      if (!file.type.startsWith("image/")) {
-        toast.error("Invalid file type. Please select an image.");
-        return;
-      }
-
       setImageFile(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
+      reader.onloadend = () => setImagePreview(reader.result as string);
       reader.readAsDataURL(file);
     }
-    // Clear the input value to allow re-uploading the same file
-    if(e.target) e.target.value = "";
   };
 
-  // Handle form submission
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isLoaded || !user || !hasChanges) {
-      return;
-    }
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!isLoaded || !user || !hasChanges) return;
 
     setIsLoading(true);
     try {
       const promises: Promise<any>[] = [];
-
-      // Check if name needs updating
-      if (
-        firstName.trim() !== (user.firstName || '') ||
-        lastName.trim() !== (user.lastName || '')
-      ) {
-        promises.push(
-          user.update({
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-          })
-        );
+      if (firstName !== user.firstName || lastName !== user.lastName) {
+        promises.push(user.update({ firstName, lastName }));
       }
-
-      // Check if image needs updating
       if (imageFile) {
-        promises.push(
-          user.setProfileImage({
-            file: imageFile,
-          })
-        );
+        promises.push(user.setProfileImage({ file: imageFile }));
       }
-
       await Promise.all(promises);
-      
-      toast.success("Profile updated successfully!");
-      onOpenChange(false); // Close the modal on success
-
+      toast.success("Profile updated");
+      // Don't close modal, just update state logic if needed
     } catch (err: any) {
-      console.error("Failed to update profile", err);
-      const errorMessage = err.errors?.[0]?.message || "An error occurred.";
-      toast.error(errorMessage);
+      toast.error(err.errors?.[0]?.message || "Error updating profile");
     } finally {
       setIsLoading(false);
     }
@@ -149,237 +136,251 @@ export function AccountModal({ isOpen, onOpenChange }: AccountModalProps) {
     setIsDeleting(true);
     try {
       await user.delete();
-      toast.success("Account deleted successfully.");
+      toast.success("Account deleted");
       onOpenChange(false);
-      // Clerk's hooks will handle redirecting the user
-    } catch (err: any) {
-      console.error("Failed to delete account", err);
-      const errorMessage = err.errors?.[0]?.message || "An error occurred.";
-      toast.error(errorMessage);
-      setIsDeleting(false); // Only reset on error
+    } catch (err) {
+      toast.error("Failed to delete account");
+      setIsDeleting(false);
     }
-  }
-
-  // Prevent closing the dialog while loading
-  const handleOpenChange = (open: boolean) => {
-    if (isLoading || isDeleting) return;
-    onOpenChange(open);
   };
-  
-  const getInitials = () => {
-    const f = user?.firstName || "";
-    const l = user?.lastName || "";
-    return `${f.charAt(0)}${l.charAt(0)}`.toUpperCase() || "U";
-  };
-
-  // --- THIS IS THE FIX ---
-  // Safely check the linkedTo array. Use `?.[0]` to safely access the first element.
-  // If it's missing (i.e., email/password user), default to 'email'.
-  const authProvider = user?.primaryEmailAddress?.linkedTo?.[0]?.type || 'email';
-  // --- END OF FIX ---
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <DialogTitle>Account Settings</DialogTitle>
-            <DialogDescription>
-              Manage your profile, security, and preferences.
-            </DialogDescription>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="overflow-hidden p-0 md:max-h-[500px] md:max-w-[700px] lg:max-w-[800px]">
+        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogDescription className="sr-only">
+          Manage your account settings
+        </DialogDescription>
 
-          {!isLoaded ? (
-            <div className="py-4">
-              <div className="flex items-center space-x-4 mb-6">
-                <Skeleton className="h-20 w-20 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-[150px]" />
-                  <Skeleton className="h-4 w-[200px]" />
+        <SidebarProvider className="items-start h-full">
+          {/* LEFT SIDEBAR */}
+          <Sidebar
+            collapsible="none"
+            className="hidden md:flex w-60 border-r bg-muted/30"
+          >
+            <SidebarContent>
+              <SidebarGroup>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {data.nav.map((item) => (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton
+                          isActive={activeSection === item.id}
+                          onClick={() => setActiveSection(item.id)}
+                        >
+                          <item.icon className="mr-2 size-4" />
+                          <span>{item.name}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </SidebarContent>
+          </Sidebar>
+
+          {/* RIGHT MAIN CONTENT */}
+          <main className="flex h-[500px] flex-1 flex-col overflow-hidden bg-background">
+            {/* Header / Breadcrumb */}
+            <header className="flex h-14 shrink-0 items-center gap-2 border-b px-6">
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem className="hidden md:block">
+                    Settings
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="hidden md:block" />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>
+                      {data.nav.find((n) => n.id === activeSection)?.name}
+                    </BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+            </header>
+
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!isLoaded ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-20 w-20 rounded-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
                 </div>
-              </div>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Skeleton className="h-5 w-16" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-                <div className="grid gap-2">
-                  <Skeleton className="h-5 w-16" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
-              </TabsList>
-              
-              {/* Profile Tab */}
-              <TabsContent value="profile">
-                <form onSubmit={handleSave}>
-                  <div className="grid gap-4 py-4">
-                    {/* Profile Picture */}
-                    <div className="grid gap-2">
-                      <Label>Profile Picture</Label>
-                      <div className="flex items-center gap-4">
-                        <div className="relative group">
-                          <Avatar className="h-20 w-20">
-                            <AvatarImage src={imagePreview || user?.imageUrl} />
-                            <AvatarFallback className="text-3xl">
-                              {getInitials()}
-                            </AvatarFallback>
-                          </Avatar>
+              ) : (
+                <>
+                  {activeSection === "profile" && (
+                    <div className="space-y-6 max-w-xl">
+                      <div>
+                        <h3 className="text-lg font-medium">Public Profile</h3>
+                        <p className="text-sm text-muted-foreground">
+                          This is how others will see you on the site.
+                        </p>
+                      </div>
+                      <Separator />
+
+                      <div className="flex items-center gap-6">
+                        <Avatar className="h-20 w-20 border">
+                          <AvatarImage src={imagePreview || user?.imageUrl} />
+                          <AvatarFallback>User</AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-2">
                           <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute inset-0 h-full w-full rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                            variant="outline"
+                            size="sm"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isLoading}
                           >
-                            <Camera className="h-6 w-6" />
+                            Change Picture
                           </Button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageChange}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Max 2MB. JPG, PNG, GIF.
+                          </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={isLoading}
-                        >
-                          Change
-                        </Button>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageChange}
-                        />
+                      </div>
+
+                      <div className="grid gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>First Name</Label>
+                            <Input
+                              value={firstName}
+                              onChange={(e) => setFirstName(e.target.value)}
+                              disabled={isLoading}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Last Name</Label>
+                            <Input
+                              value={lastName}
+                              onChange={(e) => setLastName(e.target.value)}
+                              disabled={isLoading}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input
+                            value={user?.emailAddresses[0]?.emailAddress}
+                            disabled
+                            className="bg-muted"
+                          />
+                        </div>
                       </div>
                     </div>
+                  )}
 
-                    {/* First Name Input */}
-                    <div className="grid gap-2">
-                      <Label htmlFor="firstName">First Name</Label>
-                      <Input
-                        id="firstName"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="e.g., Patrick"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    {/* Last Name Input */}
-                    <div className="grid gap-2">
-                      <Label htmlFor="lastName">Last Name</Label>
-                      <Input
-                        id="lastName"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="e.g., Pato"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    {/* Email (Read-only) */}
-                    <div className="grid gap-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        value={user?.emailAddresses[0]?.emailAddress || ''}
-                        disabled
-                        readOnly
-                        className="text-muted-foreground"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => onOpenChange(false)}
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading || !isLoaded || !hasChanges}>
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save changes
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </TabsContent>
-              
-              {/* Security Tab */}
-              <TabsContent value="security">
-                <div className="grid gap-6 py-4">
-                  <div className="grid gap-2">
-                    <Label>Authentication</Label>
-                    {/* Use the new safe `authProvider` variable here */}
-                    <p className="text-sm text-muted-foreground">
-                      {authProvider === 'email'
-                        ? 'You are signed in with Email & Password.'
-                        : `You are signed in via ${authProvider.charAt(0).toUpperCase() + authProvider.slice(1)}. Manage your password through that provider.`
-                      }
-                    </p>
-                  </div>
-                  
-                  <Separator />
-
-                  {/* Danger Zone: Must wrap the trigger AND content in one <AlertDialog> */}
-                  <AlertDialog>
-                    <div className="space-y-3 rounded-lg border border-destructive p-4">
-                      <div className="flex items-center gap-2">
-                        <ShieldX className="h-5 w-5 text-destructive" />
-                        <h4 className="font-semibold text-destructive">Danger Zone</h4>
+                  {activeSection === "security" && (
+                    <div className="space-y-6 max-w-xl">
+                      <div>
+                        <h3 className="text-lg font-medium">Security</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Manage your account security and preferences.
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Deleting your account is permanent and cannot be undone. All your folders, notes, and flashcards will be lost.
-                      </p>
-                      
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" disabled={isLoading}>
-                          Delete Account
-                        </Button>
-                      </AlertDialogTrigger>
-                    </div>
-                    
-                    {/* This content is now tied to the trigger above */}
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete your
-                          account and remove all your data from our servers.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive hover:bg-destructive/90"
-                          onClick={handleDeleteAccount}
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Deleting...
-                            </>
+                      <Separator />
+
+                      <div className="space-y-2">
+                        <Label>Authentication Provider</Label>
+                        <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/50 text-sm">
+                          {authProvider === "email" ? (
+                            <Lock className="h-4 w-4" />
                           ) : (
-                            "Yes, delete my account"
+                            <User className="h-4 w-4" />
                           )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog> {/* End of AlertDialog */}
+                          {authProvider === "email"
+                            ? "Signed in with Email & Password"
+                            : `Signed in via ${authProvider.charAt(0).toUpperCase() + authProvider.slice(1)}`}
+                        </div>
+                      </div>
 
-                </div>
-              </TabsContent>
-            </Tabs>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+                      <div className="pt-6">
+                        <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+                          <div className="flex items-center gap-2 mb-2 text-destructive">
+                            <ShieldX className="h-5 w-5" />
+                            <h4 className="font-semibold">Danger Zone</h4>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Deleting your account is permanent. All your data
+                            will be lost.
+                          </p>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={isLoading}
+                              >
+                                Delete Account
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Are you absolutely sure?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will
+                                  permanently delete your account and remove
+                                  your data from our servers.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={isDeleting}>
+                                  Cancel
+                                </AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive hover:bg-destructive/90"
+                                  onClick={handleDeleteAccount}
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
+                                  ) : (
+                                    "Delete Account"
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer with Actions */}
+            {activeSection === "profile" && (
+              <div className="flex items-center justify-end gap-2 p-4 border-t bg-muted/10">
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => handleSave()}
+                  disabled={isLoading || !hasChanges}
+                >
+                  {isLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Save Changes
+                </Button>
+              </div>
+            )}
+          </main>
+        </SidebarProvider>
+      </DialogContent>
+    </Dialog>
   );
 }

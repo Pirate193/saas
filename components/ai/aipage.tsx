@@ -81,7 +81,13 @@ import {
   GetFlashcard,
   GetFolderItems,
   GetUserFlashcards,
+  LoadingCodeSnippet,
+  LoadingFlashcard,
+  LoadingMermaidDiagram,
+  LoadingNote,
+  SourceGrid,
   UpdateNote,
+  YouTubeEmbed,
 } from "@/components/ai/tools";
 import { FileUIPart, UIMessage } from "ai";
 import { SidebarTrigger } from "../ui/sidebar";
@@ -90,6 +96,7 @@ import { useAiStore } from "@/stores/aiStore";
 import { toast } from "sonner";
 import { UsageLimitModal } from "../subscription/usage-limit-modal";
 import Ailimit from "../subscription/ailimit-banner";
+import { Spinner } from "../ui/spinner";
 
 interface Props {
   chatId: Id<"chats">;
@@ -395,7 +402,10 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-createNote") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingNote title="Creating Note" />
+                        )}
                         {part.state === "output-available" && (
                           <CreateNote output={part.output} />
                         )}
@@ -405,7 +415,10 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-updateNote") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingNote title="Updating Note" />
+                        )}
                         {part.state === "output-available" && (
                           <UpdateNote output={part.output} />
                         )}
@@ -415,7 +428,10 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-generateFlashcards") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Generating Flashcards" />
+                        )}
                         {part.state === "output-available" && (
                           <CreateFlashcard output={part.output} />
                         )}
@@ -442,7 +458,10 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-getUserFlashcards") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Fetching Flashcards" />
+                        )}
                         {part.state === "output-available" && (
                           <GetUserFlashcards output={part.output} />
                         )}
@@ -452,7 +471,10 @@ const Chat = ({ chatId }: Props) => {
 
                   if (part.type === "tool-getFlashcard") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Fetching Flashcard" />
+                        )}
                         {part.state === "output-available" && (
                           <GetFlashcard output={part.output} />
                         )}
@@ -461,13 +483,16 @@ const Chat = ({ chatId }: Props) => {
                   }
                   if (part.type === "tool-searchTheWeb") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-searchTheWeb"
-                          title="Searching the Web"
-                        />
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <div className="flex items-center gap-2">
+                            <Spinner /> <p>Searching the Web</p>
+                          </div>
+                        )}
+                        {part.state === "output-available" && (
+                          <SourceGrid output={part.output} />
+                        )}
+                      </div>
                     );
                   }
                   if (part.type === "tool-getNoteContent") {
@@ -483,7 +508,10 @@ const Chat = ({ chatId }: Props) => {
                   }
                   if (part.type === "tool-generateCodeSnippet") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingCodeSnippet title="Generating Code" />
+                        )}
                         {part.state === "output-available" && (
                           <GenerateCodeSnippet output={part.output} />
                         )}
@@ -492,19 +520,21 @@ const Chat = ({ chatId }: Props) => {
                   }
                   if (part.type === "tool-generateMermaidDiagram") {
                     return (
-                      <div>
-                        mermaid
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingMermaidDiagram title="Generating Mermaid Diagram" />
+                        )}
                         {part.state === "output-available" && (
                           <GenerateMermaidDiagram output={part.output} />
                         )}
                       </div>
                     );
                   }
-                  if (part.type === "tool-createWhiteboard") {
+                  if (part.type === "tool-youtubeVideo") {
                     return (
-                      <div>
+                      <div key={`${message.id}-${i}`}>
                         {part.state === "output-available" && (
-                          <CreateWhiteboard output={part.output} />
+                          <YouTubeEmbed output={part.output} />
                         )}
                       </div>
                     );

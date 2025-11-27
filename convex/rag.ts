@@ -10,10 +10,11 @@ type FilterTypes = {
   fileId:string;
 };
 const rag = new RAG<FilterTypes>(components.rag, {
-  textEmbeddingModel: google.textEmbeddingModel('gemini-embedding-001'),
+  textEmbeddingModel: google.textEmbeddingModel('text-embedding-004'),
   embeddingDimension: 768, 
   filterNames:["folderId","fileId"],
 });
+
 
 export const addFile = action({
     args:{
@@ -40,19 +41,23 @@ export const addFile = action({
 export const search = action({
     args:{
         query:v.string(),
-        folderId:v.id("folders"),
-        fileId:v.id("files"),
+        fileId:v.id("files"),  
     },
     handler:async (ctx ,args)=>{
         const user = await ctx.auth.getUserIdentity();
+      
+        if(!user){
+           throw new Error("Authentication required");
+        }
          const results = await rag.search(ctx,{
-             namespace:user?.subject as string,
+             namespace:user.subject,
              query:args.query,
              filters:[
-                {name:'folderId',value:args.folderId},
-                {name:'fileId',value:args.fileId},
+                // {name:'folderId',value:args.folderId},
+                {name:'fileId',value:args.fileId || ""},
              ]
          })
         return results;
     }
 })
+

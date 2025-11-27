@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "silent-goose-685.convex.cloud",
       },
+      {
+        protocol: "https",
+        hostname: "ik.imagekit.io",
+      },
     ],
   },
 };

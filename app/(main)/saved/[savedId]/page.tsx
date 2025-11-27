@@ -1,44 +1,21 @@
-"use client";
-
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
-import { useParams, useRouter } from "next/navigation";
-import { SavedFolderTreeItem } from "@/components/saved/SavedFolderTree";
-import { ExploreCard } from "@/components/explore/ExploreCard";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  FileText,
-  File as FileIcon,
-  CreditCard,
-  Folder,
-  BookmarkCheck,
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import SavedDashboard from "./dashboard";
 
-export default function SavedFolderPage() {
-  const params = useParams();
-  const router = useRouter();
-  const savedId = params.savedId as Id<"folders">;
+import { Skeleton } from "@/components/ui/skeleton";
+
+import SavedDashboard from "./dashboard";
+import { fetchQuery } from "convex/nextjs";
+
+export default async function SavedFolderPage({
+  params,
+}: {
+  params: { savedId: string };
+}) {
+  const { savedId } = await params;
 
   // Fetch the current folder
-  const folder = useQuery(api.saving.getFolderById, {
-    folderId: savedId,
-  });
-
-  // Fetch contents
-  const subfolders = useQuery(api.saving.getFolderChildren, {
-    parentId: savedId,
-  });
-  const notes = useQuery(api.saving.getFolderNotes, {
-    folderId: savedId,
-  });
-  const files = useQuery(api.saving.getFolderFiles, {
-    folderId: savedId,
-  });
-  const flashcards = useQuery(api.saving.getFolderFlashcards, {
-    folderId: savedId,
+  const folder = fetchQuery(api.saving.getFolderById, {
+    folderId: savedId as Id<"folders">,
   });
 
   if (folder === undefined) {
@@ -59,12 +36,16 @@ export default function SavedFolderPage() {
   }
 
   if (!folder) {
-    return <div className="p-6">Folder not found or is private.</div>;
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <h1 className="text-2xl font-bold">Folder not found or is private.</h1>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col h-full">
-      <SavedDashboard folderId={savedId} />
+      <SavedDashboard folderId={savedId as Id<"folders">} />
     </div>
   );
 }

@@ -37,6 +37,7 @@ import { useState } from "react";
 import Chatwithpdf from "@/components/filescomponents/chatwithpdf";
 import extractTextFromPDF from "@/lib/pdfparse";
 import { UsageLimitModal } from "@/components/subscription/usage-limit-modal";
+import CanvasModal from "@/components/ai/canvasmodal";
 const FilePage = () => {
   const params = useParams();
   const fileId = params.fileId;
@@ -177,6 +178,7 @@ const FilePage = () => {
         onOpenChange={setIsLimitModalOpen}
         limitType="chat_pdf"
       />
+      <CanvasModal />
     </div>
   );
 };

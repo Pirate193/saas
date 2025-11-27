@@ -24,9 +24,13 @@ import {
   GetFlashcardOutput,
   GetFolderItemsOutput,
   GetUserFlashcardsOutput,
+  SearchWebOutput,
+  SearchWithPdfOutput,
   UpdateFolderOutput,
   UpdateNoteOutput,
+  YoutubeVideoOutput,
 } from "@/types/aitoolstypes";
+import { query } from "@/convex/_generated/server";
 
 export const maxDuration = 30;
 
@@ -84,69 +88,9 @@ export async function POST(req: Request) {
 
   const userInfo = await convex.query(api.user.getCurrentUser);
 
-  // --- (This is the new System Prompt) ---
-  const system = `
-## 1. CORE ROLE
-You are an expert AI study assistant. Your primary goal is to help students learn effectively and achieve academic success. Your behavior changes based on the active mode.
 
-## 2. SESSION CONFIGURATION
-- **Study Mode**: ${studyModeContext}
-- **Web Search**: ${webSearchContext}
-- ${folderContext}
-- ${noteContext}
-- ${userInfo}
 
-## 3. MODE-SPECIFIC BEHAVIOR
-${
-  studyMode
-    ? `
-### TUTOR MODE (STUDY MODE IS ON)
-You are an interactive, Socratic tutor. Your goal is to guide the student to their own understanding.
-- **NEVER** give a direct, final answer to a knowledge question (e.g., "What is machine learning?").
-- **ALWAYS** respond by:
-  1.  Acknowledging their question.
-  2.  Asking a smaller, guiding question to help them think.
-  3.  Breaking the concept into digestible steps.
-- **Example:**
-  - *User:* "What is machine learning?"
-  - *You:* "That's a great topic! To start, what do you already know about how computers make decisions? For example, have you heard of 'if-then' rules?"
-- Proactively use tools. If a student is learning, call \`getfolderitems\` to see if they have notes, then call \`getUserFlashcards\` to quiz them. This is a core part of guided learning.
-`
-    : `
-### ASSISTANT MODE (STUDY MODE IS OFF)
-You are a direct, efficient AI assistant. Your goal is to provide comprehensive, factual answers quickly.
-- **ALWAYS** provide a direct, complete answer to the user's question.
-- Use clear formatting (headings, lists) to make information easy to digest.
-- Be autonomous: if asked to "create flashcards," do it immediately using your own knowledge and the provided context.
-`
-}
-
-## 4. CRITICAL TOOL USAGE
-- **AUTONOMY (MANDATORY)**: You are fully autonomous. When asked to generate content (flashcards, notes), you MUST generate it yourself based on the context. **NEVER** ask the user to provide the questions, answers, or content.
-- **CONTEXT FIRST**: Before generating *any* new content, **ALWAYS** call \`getfolderitems\` on a tagged folder to see what notes, files, and flashcards already exist. This prevents duplication and provides context.
-- **WEB SEARCH**: ${webSearch ? "Use the \`searchTheWeb\` tool if the user asks for current events or information you cannot find in the chat history or tagged context." : "You do not have access to the web. Only use your internal knowledge."}
-
-## 5. SPECIFIC TOOL INSTRUCTIONS
-### Generating Diagrams:
-1. **Use Visuals**: If a user asks to "visualize", "chart", "map out", "flow", or explain a complex process, use \`generateMermaidDiagram\`.
-2. **Select Type**: Choose the best diagram type:
-   - **Flowchart**: For decision trees, logic flows, or processes.
-   - **Sequence**: For interactions between systems (e.g., API calls, User vs Server).
-   - **Mindmap**: For brainstorming or hierarchical concepts.
-   - **ER**: For database structures.
-3. **Syntax**: Ensure the \`diagram\` code is valid Mermaid.js syntax. Do not wrap it in markdown code blocks inside the tool input; pass the raw string.
-### Generating Code Snippets:
-1.  Use \`generateCodeSnippet\` to generate a code snippet.
-### Generating Flashcards:
-1.  Call \`getfolderitems\` on the relevant folder.
-2.  Analyze existing notes, files, and flashcards.
-3.  Autonomously generate 5-10 new, relevant flashcards using \`generateFlashcards\`.
-4.  Questions must be clear and test understanding. For multiple choice, provide 4 options with only 1 correct answer.
-### Creating Notes:
-1.  Call \`getfolderitems\` to understand existing content.
-2.  Autonomously generate an appropriate title (e.g., "Introduction to AI").
-3.  Call \`createNote\` with the \`folderId\` and your generated \`title\` and \`content\` in markdown format when creating a note always make sure it has content  .
-4.   call \`updateNote\` with the new \`noteId\` and the full note content.
+ const notecontentrules = `
 5.  **IMPORTANT**: The \`content\` for \`updateNote\` and \`createNote\` MUST be written in standard **Markdown**.
 
 **IMPORTANT**:  when writing in markdown make sure you follow these syntax 
@@ -268,6 +212,70 @@ def example():
 
 
 `;
+  const system = `
+## 1. CORE ROLE
+You are an expert AI study assistant and tutor. Your goal is to help students learn effectively using a variety of multimodal tools (Visuals, Videos, Notes, Quizzes).
+
+## 2. SESSION CONTEXT
+- **Study Mode**: ${studyModeContext}
+- **Web Search**: ${webSearchContext}
+- ${folderContext}
+- ${noteContext}
+- The user's name is ${userInfo.name} use it when addressing the user
+
+## 3. DECISION ENGINE (HOW TO CHOOSE TOOLS)
+When the user asks a question, pause and decide the best pedagogical approach:
+
+| User Intent | Best Tool | Why? |
+| :--- | :--- | :--- |
+| "Visualize", "Map out", "Flow of..." | \`generateMermaidDiagram\` | Visuals help memory retention for processes and structures. |
+| "Watch a video", "Tutorial for..." | \`youtubeVideo\` | Some concepts are best learned through watching. |
+| "Quiz me", "Test me" | \`getUserFlashcards\` (then quiz) OR \`generateFlashcards\` | Active recall is the best way to study. |
+| "Save this", "Write a note" | \`createNote\` | Helps the user organize knowledge for later. |
+| "Show me code", "How to implement" | \`generateCodeSnippet\` | Provides syntax highlighting and copy-paste ability. |
+| "Current events", "Fact check" | \`searchTheWeb\` | Your internal knowledge cutoff might be outdated. |
+
+## 4. MODE BEHAVIOR
+${studyMode ? `
+### 🎓 TUTOR MODE (ACTIVE)
+- **Socratic Method**: Do not dump answers. Ask guiding questions.
+- **Proactive Visuals**: If a concept is complex (e.g. "Krebs Cycle", "Redux Flow"), AUTO-GENERATE a diagram without being asked.
+- **Check Understanding**: After explaining, ask "Would you like a quick quiz on this?"
+` : `
+### 🤖 ASSISTANT MODE (ACTIVE)
+- **Direct & Efficient**: Give the complete answer immediately.
+- **Get it done**: If asked for flashcards, generate them instantly.
+`}
+
+## 5. SPECIFIC TOOL INSTRUCTIONS
+
+### 🎨 Diagrams (Mermaid)
+- **Flowcharts**: For processes, decision trees, or logic loops.
+- **Sequence**: For interactions between actors (User -> API -> DB).
+- **Mindmaps**: For brainstorming or hierarchical topic breakdowns.
+- **ER**: For database schemas.
+- **Class Diagrams**: For object-oriented design.
+- 
+- **IMPORTANT**: Output VALID Mermaid syntax. Do not wrap the code in markdown blocks inside the tool call.
+
+### 📺 YouTube
+- Use this when the user is stuck or asks for a visual explanation or to explain the concept better .
+- If you find a video, briefly summarize *why* it's helpful before showing it.
+
+### 📝 Notes
+- Title: Auto-generate a descriptive title (e.g., "Summary of Quantum Mechanics").
+- Content: MUST be valid Markdown.use this rules for any notes content ${notecontentrules}.
+
+### 🃏 Flashcards
+- **Autonomy**: Do not ask the user for questions. Analyze the context (notes/folders) or any other available information and generate 5-10 high-quality cards.
+- **Format**: For MCQ, ensure one answer is clearly correct and distractors are plausible.
+
+### 🌐 Web Search
+- Use this for: News, Citations, Recent Libraries/Frameworks, or when you are unsure.
+- **Citations**: If you use search results, cite them in your text response using [1], [2] format corresponding to the source order.
+## Your Output Format Rules:
+
+`;
 
   const tools = createTools(convex);
 
@@ -304,7 +312,7 @@ export function createTools(convex: ConvexHttpClient) {
   return {
     generateFlashcards: tool({
       description:
-        "Generate a flashcard in a folder. Create thoughtful questions with correct answers based on the folder content. For multiple choice, provide 4 options. DO NOT ask the user for questions/answers - you should generate them autonomously.",
+        "Generate a flashcard in a folder For multiple choice, provide 4 options.",
       inputSchema: z.object({
         folderId: z
           .string()
@@ -579,7 +587,7 @@ export function createTools(convex: ConvexHttpClient) {
       inputSchema: z.object({
         query: z.string().describe("The search query to find information about."),
       }),
-      execute: async ({ query }) => {
+      execute: async ({ query }): Promise<SearchWebOutput | { success: false; error: string }> => {
         console.log(`Tool: searching web for: ${query}`);
         try {
           const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
@@ -595,25 +603,26 @@ export function createTools(convex: ConvexHttpClient) {
 
           // Extract snippets and sources
           const results = data.items?.map((item: any) => ({
-            snippet: item.snippet,
-            source: item.link,
+            content: item.snippet,
+            url: item.link,
             title: item.title,
           })) || [];
 
           if (results.length === 0) {
-            return { success: true, message: "No relevant web results found." };
+            return { success: true, message: "No relevant web results found." ,resultsContext: "", sources: []};
           }
 
           // Return a clean, simple string for the LLM
           const context = results
             .slice(0, 5) // Get top 5 results
-            .map((item: any) => `Title: ${item.title}\nSource: ${item.source}\nSnippet: ${item.snippet}`)
+            .map((item: any) => `Title: ${item.title}\nSource: ${item.url}\nContent: ${item.content}`)
             .join('\n\n---\n\n');
 
           return {
             success: true,
-            message: `Found ${results.length} results. Here is the summary of the top 5:`,
-            resultsContext: context
+            message: `Found ${results.length} results.`,
+            resultsContext: context,
+            sources: results.slice(0, 5)          
           };
 
         } catch (error) {
@@ -769,6 +778,102 @@ export function createTools(convex: ConvexHttpClient) {
         }
       },
     }),
+    youtubeVideo: tool({
+  description: "Search for a YouTube video and play it. Use this when the user asks for a video tutorial or visual explanation.",
+  inputSchema: z.object({
+    query: z.string().describe("Search query for YouTube (e.g., 'Pythagoras theorem tutorial')"),
+  }),
+  execute: async ({ query }): Promise<YoutubeVideoOutput | { success: false; error: string }> => {
+    const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+    const cx = process.env.GOOGLE_SEARCH_ENGINE_ID;
+    
+    // We append 'site:youtube.com' to ensure we get video links
+    const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query + " site:youtube.com")}&num=1`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      const firstResult = data.items?.[0];
+
+      if (!firstResult) return { success: false, error: "No video found" };
+
+      // Extract Video ID from URL (e.g., ?v=dQw4w9WgXcQ)
+      const videoIdMatch = firstResult.link.match(/(?:v=|\/)([\w-]{11})(?:\?|&|\/|$)/);
+      const videoId = videoIdMatch ? videoIdMatch[1] : null;
+
+      if (!videoId) return { success: false, error: "Could not parse Video ID" };
+
+      return { 
+        success: true, 
+        videoId, 
+        title: firstResult.title, 
+        description: firstResult.snippet 
+      };
+    } catch (e) {
+      return { success: false, error: "YouTube search failed" };
+    }
+  }
+}),
+
+     searchWithPdf:tool({
+      description:'Search inside a specific PDF file to find relevant context/answers. Use this when the user asks questions about a document they have uploaded.',
+      inputSchema:z.object({
+        query:z.string().describe("Search query for PDF"),
+        fileId: z.string().describe("The ID of the PDF file to search"),
+      }),
+      execute: async({query,fileId}):Promise<SearchWithPdfOutput | { success: false; error: string }>=>{
+        try {
+       // 1. Get the raw response from Convex
+      const searchResponse = await convex.action(api.rag.search, {
+         query,
+         fileId: fileId as Id<"files">,
+      });
+
+
+      // 2. Safety Check: Did we get results?
+      // The structure is searchResponse.results
+      if (!searchResponse?.results || searchResponse.results.length === 0) {
+         return { success: true, resultsContext: "No relevant info found." };
+      }
+
+      // 3. Map over 'results' to extract text correctly
+      // We limit to top 5 to save tokens
+      const hits = searchResponse.results.slice(0, 5);
+
+      const contextString = hits
+        .map((result: any, i: number) => {
+           // 🚨 THE FIX: Drill into content[0].text
+           const textContent = result.content?.[0]?.text || "";
+           return `[${i + 1}] "${textContent.trim()}"`;
+        })
+        .join("\n\n");
+
+      const sources = hits.map((result: any) => {
+        // 🚨 THE FIX: Drill into content[0].text for UI too
+        const textContent = result.content?.[0]?.text || "";
+        return {
+          pageContent: textContent,
+          metadata: { 
+             score: result.score 
+             // Note: Your current data doesn't have explicit 'pageNumber' metadata, 
+             // but it is written inside the text (e.g. "-- 1 of 14 --")
+          }
+        };
+      });
+
+      console.log("sources", sources);
+      console.log("contextString", contextString);
+      return {
+        success: true,
+        resultsContext: `Relevant PDF Excerpts:\n\n${contextString}`,
+        sources: sources
+      };
+        } catch (error) {
+          console.log("error in searchWithPdf", error);
+          return { success: false, error: `Failed to search with PDF: ${error}` };
+        }
+      }
+     })
 
     // createWhiteboard: tool({
     //   description: 'Create a new whiteboard for freeform drawing, brainstorming, or visual problem-solving.',

@@ -55,7 +55,7 @@ export function ChatHistoryPopover() {
   const chats = useQuery(api.chat.fetchChats);
   const params = useParams();
   const { setActiveChatId, activeChatId } = useAiStore();
-  const chatId = params.chatId as Id<"chats">;
+  const chatId = activeChatId as Id<"chats">;
   const deletechat = useMutation(api.chat.deleteChat);
   const updateChat = useMutation(api.chat.updateChat);
 

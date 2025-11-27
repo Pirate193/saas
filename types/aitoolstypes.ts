@@ -78,9 +78,35 @@ export const createWhiteboardOutputSchema = successSchema.extend({
   message: z.string(),
 });
 
+export const youtubeVideoOutputSchema = successSchema.extend({
+  videoId: z.string(),
+  title: z.string(),
+  description: z.string(),
+});
+export const searchWebOutputSchema = successSchema.extend({
+  message: z.string(),
+  resultsContext: z.string(),
+  sources: z.array(z.object({
+    title: z.string(),
+    url: z.string(),
+    content: z.string()
+  })).optional()
+});
+export const searchWithPdfOutputSchema = successSchema.extend({
+  resultsContext: z.string(),
+  sources: z.array(z.object({
+    pageContent: z.string(),
+    metadata: z.object({
+      score: z.number()
+    })
+  })).optional()
+});
+
+
+export type SearchWebOutput = z.infer<typeof searchWebOutputSchema>;
+export type SearchWithPdfOutput = z.infer<typeof searchWithPdfOutputSchema>;
 export type GenerateCodeSnippetOutput = z.infer<typeof generateCodeSnippetOutputSchema>;
-
-
+export type YoutubeVideoOutput = z.infer<typeof youtubeVideoOutputSchema>;
 export type CreateNoteOutput = z.infer<typeof createNoteOutputSchema>;
 export type UpdateNoteOutput = z.infer<typeof updateNoteOutputSchema>;
 export type GenerateFlashcardOutput = z.infer<typeof generateFlashcardOutputSchema>;

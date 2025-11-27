@@ -55,7 +55,7 @@ export function NavUser() {
   const [BillingDialogOpen, setBillingDialogOpen] = useState(false);
 
   // Loading state
-  if (!isLoaded) {
+  if (!isLoaded || !tier) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
@@ -87,7 +87,7 @@ export function NavUser() {
 
   const handleSignOut = async () => {
     await signOut();
-    router.push("/");
+    router.replace("/");
   };
 
   // 5. This function now just toggles your modal state
@@ -115,7 +115,7 @@ export function NavUser() {
                   <div className="gap-2 flex">
                     <span className="truncate font-semibold">{fullName}</span>
                     <Badge variant="outline">
-                      {tier?.isFree ? "free" : "pro"}
+                      {tier.isFree ? "free" : "pro"}
                     </Badge>
                   </div>
 

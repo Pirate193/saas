@@ -20,6 +20,10 @@ interface whiteboardData {
   title:string;
   snapshot?:any;
 }
+interface videoData {
+  title:string;
+  videoId:string;
+}
 interface CanvasStore {
   // UI State
   isCanvasOpen: boolean;
@@ -27,14 +31,14 @@ interface CanvasStore {
 
   // Data State
   activeNoteId: Id<'notes'> | null;
-  activeVideoId: string | null; // YouTube Video ID
+  activeVideoId: videoData | null; // YouTube Video ID
   activeCodeSnippet: CodeSnippetData | null; // For the code execution panel
   activeMermaid: MermaidData | null; // For the mermaid panel
   activeWhiteboard: whiteboardData | null; // For the whiteboard panel
   // Actions
   setCanvasOpen: (isOpen: boolean) => void;
   openNote: (noteId: Id<'notes'>) => void;
-  openVideo: (videoId: string) => void;
+  openVideo: (videoId: videoData) => void;
   openCode: (code: CodeSnippetData) => void;
   openMermaid: (mermaid: MermaidData) => void;
   openWhiteboard: (whiteboard: whiteboardData) => void;

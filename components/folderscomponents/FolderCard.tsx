@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { api } from "@/convex/_generated/api";
 import { Id, Doc } from "@/convex/_generated/dataModel";
@@ -24,7 +24,7 @@ import {
 } from "../ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { format } from 'date-fns'; // For the date
+import { format } from "date-fns"; // For the date
 import { Skeleton } from "../ui/skeleton";
 import UpdateDialog from "./update-folder";
 import DeleteDialog from "../DeleteDialog";
@@ -47,7 +47,7 @@ function ItemCount({
   count: number;
 }) {
   // Don't show the count if it's zero
-  if (count === 0) return null; 
+  if (count === 0) return null;
 
   return (
     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -92,24 +92,31 @@ export const FolderCardSkeleton = () => {
  */
 export const FolderCard = ({ folder, allFolders }: FolderCardProps) => {
   const router = useRouter();
-  
+
   // --- State for Dialogs ---
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
-  
+
   // --- Data Fetching for Counts ---
   // Each card will fetch the counts for its specific folderId
-  const notes = useQuery(api.notes.fetchNotesInFolder, { folderId: folder._id });
+  const notes = useQuery(api.notes.fetchNotesInFolder, {
+    folderId: folder._id,
+  });
   const files = useQuery(api.files.fetchfiles, { folderId: folder._id });
-  const flashcards = useQuery(api.flashcards.fetchFlashcards, { folderId: folder._id });
-  
+  const flashcards = useQuery(api.flashcards.fetchFlashcards, {
+    folderId: folder._id,
+  });
+
   // Client-side calculation for subfolders (since we already have all folders)
-  const subfoldersCount = allFolders.filter(f => f.parentId === folder._id).length;
+  const subfoldersCount = allFolders.filter(
+    (f) => f.parentId === folder._id
+  ).length;
 
   const deleteFolder = useMutation(api.folders.deleteFolder);
 
   // Show loading skeleton if any data is still loading
-  const isLoading = notes === undefined || files === undefined || flashcards === undefined;
+  const isLoading =
+    notes === undefined || files === undefined || flashcards === undefined;
 
   const handleCardClick = () => {
     router.push(`/folders/${folder._id}`);
@@ -133,11 +140,14 @@ export const FolderCard = ({ folder, allFolders }: FolderCardProps) => {
         onClick={handleCardClick}
       >
         {/* Card Header: Icon, Title, Dropdown */}
-        <CardHeader className="">
-          <div className="flex items-start justify-between gap-2">
+        <CardHeader className="flex-1 flex pb-4">
+          {" "}
+          {/* Added pb-4 to match skeleton style if needed */}
+          <div className="flex items-start justify-between gap-2 w-full">
+            {/* Title Container */}
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <Folder className="h-5 w-5 shrink-0 text-myprimary" />
-              <CardTitle className="text-lg truncate" title={folder.name}>
+              <CardTitle className="truncate text-lg" title={folder.name}>
                 {folder.name}
               </CardTitle>
             </div>
@@ -152,7 +162,10 @@ export const FolderCard = ({ folder, allFolders }: FolderCardProps) => {
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <DropdownMenuItem
                   onSelect={(e) => {
                     e.preventDefault();
@@ -183,10 +196,26 @@ export const FolderCard = ({ folder, allFolders }: FolderCardProps) => {
         <CardContent className="pt-0 space-y-4 flex flex-col flex-1">
           {/* `flex-1` makes the counts grid grow, pushing the date to the bottom */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 flex-1">
-            <ItemCount icon={FileText} label="notes" count={notes?.length ?? 0} />
-            <ItemCount icon={FileIcon} label="files" count={files?.length ?? 0} />
-            <ItemCount icon={CreditCard} label="flashcards" count={flashcards?.length ?? 0} />
-            <ItemCount icon={FolderTree} label="subfolders" count={subfoldersCount} />
+            <ItemCount
+              icon={FileText}
+              label="notes"
+              count={notes?.length ?? 0}
+            />
+            <ItemCount
+              icon={FileIcon}
+              label="files"
+              count={files?.length ?? 0}
+            />
+            <ItemCount
+              icon={CreditCard}
+              label="flashcards"
+              count={flashcards?.length ?? 0}
+            />
+            <ItemCount
+              icon={FolderTree}
+              label="subfolders"
+              count={subfoldersCount}
+            />
           </div>
 
           {/* Footer with Created date */}

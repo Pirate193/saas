@@ -130,7 +130,13 @@ export const deleteFile = mutation({
         if(!user){
             throw new Error("Not authenticated");
         }
+        // const file = await ctx.db.get(args.fileId);
+        // if(!file){
+        //     throw new Error("File not found");
+        // } 
+        // await ctx.storage.delete(file.storageId)
         await ctx.db.delete(args.fileId);
+
     }
 })
 

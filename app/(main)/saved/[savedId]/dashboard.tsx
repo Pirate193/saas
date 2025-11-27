@@ -188,11 +188,11 @@ const SavedDashboard = ({ folderId }: Props) => {
         </div>
 
         {/* Info Card */}
-        <Card className="border-purple-200 bg-purple-50/50 dark:bg-purple-950/20">
+        <Card className="bg-primary/10">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <BookmarkCheck className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-primary/20 dark:bg-primary/20 rounded-lg">
+                <BookmarkCheck className="h-6 w-6 text-primary dark:text-primary" />
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold mb-1">Saved Folder</h3>
