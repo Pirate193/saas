@@ -103,6 +103,7 @@ export default function NewChatPage() {
 
   const allFolders = useQuery(api.folders.fetchFolders);
   const allNotes = useQuery(api.notes.fetchNotes); // Fetches all notes
+  const user = useQuery(api.user.getCurrentUser);
 
   // Filtered data for the command list
   const filteredFolders = allFolders?.filter(
@@ -174,7 +175,9 @@ export default function NewChatPage() {
               <Sparkles className="size-12 text-primary" />
             </div>
           </div>
-          <h1 className="text-4xl font-bold">How can I help you today?</h1>
+          <h1 className="text-4xl font-bold">
+            Hello {user?.name} how can I help you today?
+          </h1>
         </div>
       </div>
 
@@ -370,7 +373,7 @@ export default function NewChatPage() {
               <PromptInputTextarea
                 placeholder={
                   contextFolder.length > 0 || contextNote.length > 0
-                    ? `Ask about "${contextFolder.map((folder) => folder.name).join(", ")}" or "${contextNote.map((note) => note.title).join(", ")}"...`
+                    ? `Ask about ${contextFolder.map((folder) => folder.name).join(", ")} ${contextNote.map((note) => note.title).join(", ")}...`
                     : "Plan, search, build anything"
                 }
                 value={input}

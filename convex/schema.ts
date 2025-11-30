@@ -63,7 +63,8 @@ export default defineSchema({
   })
    .index("by_user",["userId"])
    .index("by_user_and_folder",["userId","folderId"])
-    .index("by_folder",["folderId"]),
+    .index("by_folder",["folderId"])
+    .index("by_storage_id", ["storageId"]),
   
    // flashceards
    flashcards:defineTable({

@@ -10,6 +10,7 @@ import { useParams } from "next/navigation";
 import { useAiStore } from "@/stores/aiStore";
 import AiModal from "@/components/ai/aimodal";
 import { AiTriggerButton } from "@/components/ai/aiModaltrigger";
+import CanvasModal from "@/components/ai/canvasmodal";
 
 export default function FolderPage() {
   const params = useParams();
@@ -52,6 +53,7 @@ export default function FolderPage() {
           </>
         )}
       </ResizablePanelGroup>
+      <CanvasModal />
     </div>
   );
 }

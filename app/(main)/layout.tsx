@@ -17,7 +17,6 @@ export default function MainLayout({
       <SidebarInset>
         {children}
         <Toaster />
-        <CanvasModal />
       </SidebarInset>
     </SidebarProvider>
   );

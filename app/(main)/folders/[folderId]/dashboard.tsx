@@ -26,6 +26,7 @@ import {
   Loader2,
   Notebook,
   File,
+  MoreHorizontal,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -39,6 +40,13 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import {
   Breadcrumb,
@@ -52,6 +60,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+import MoveDialog from "@/components/folderscomponents/movedialog";
+import UpdateDialog from "@/components/folderscomponents/update-folder";
+import DeleteDialog from "@/components/DeleteDialog";
+import { useRouter } from "next/navigation";
 
 interface Props {
   folderId: Id<"folders">;
@@ -77,6 +89,7 @@ function DashboardSkeleton() {
 }
 
 const Dashboard = ({ folderId }: Props) => {
+  const router = useRouter();
   const stats = useQuery(api.flashcards.fetchStudyStats, {
     folderId: folderId,
   });
@@ -94,18 +107,23 @@ const Dashboard = ({ folderId }: Props) => {
   );
   const uploadBanner = useMutation(api.folders.addbanner);
   const generateurl = useMutation(api.files.generateUploadUrl);
+  const deleteFolder = useMutation(api.folders.deleteFolder);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [openMoveDialog, setOpenMoveDialog] = useState(false); //move dialog state
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false); //delete dialog state
+  const [UpdateDialogOpen, setUpdateDialogOpen] = useState(false); //update dialog state
   // Conditionally fetch parent folder only if parentId exists
+
   const parentfolder = useQuery(
     api.folders.getFolderById,
     folder?.parentId ? { folderId: folder.parentId as Id<"folders"> } : "skip"
   );
 
-  if (!folder || !stats || !notes || !files || !allfolders) {
+  if (isDeleting || !folder || !stats || !notes || !files || !allfolders) {
     return <DashboardSkeleton />;
   }
   const subfoldersCount = allfolders.filter(
@@ -150,6 +168,18 @@ const Dashboard = ({ folderId }: Props) => {
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      router.prefetch("/home");
+      await deleteFolder({ folderId: folderId });
+      router.push("/home");
+      toast.success("Folder deleted successfully");
+    } catch (error) {
+      setIsDeleting(false);
+      toast.error("Failed to delete folder");
+    }
   };
 
   return (
@@ -220,15 +250,57 @@ const Dashboard = ({ folderId }: Props) => {
             />
 
             {/* Public/Private Toggle */}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleMakepublic}
-              className="bg-black/40 hover:bg-black/60 text-white border border-white/10 backdrop-blur-sm"
-            >
-              <Globe className="h-4 w-4 mr-2" />
-              {folder.isPublic ? "Public" : "Private"}
-            </Button>
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleMakepublic}
+                className="bg-black/40 hover:bg-black/60 text-white border border-white/10 backdrop-blur-sm"
+              >
+                <Globe className="h-4 w-4 mr-2" />
+                {folder.isPublic ? "Public" : "Private"}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  asChild
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setUpdateDialogOpen(true);
+                    }}
+                  >
+                    Rename
+                    {/* TODO: Open inline input or dialog to rename folder */}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMoveDialog(true);
+                    }}
+                  >
+                    Move to...
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenDeleteDialog(true);
+                    }}
+                  >
+                    Delete
+                    {/* TODO: Confirm deletion, then call api.folders.delete */}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
 
@@ -538,6 +610,26 @@ const Dashboard = ({ folderId }: Props) => {
           </Card>
         )}
       </div>
+      <DeleteDialog
+        open={openDeleteDialog}
+        onOpenChange={setOpenDeleteDialog}
+        title="Delete Folder"
+        description={`Are you sure you want to delete ${folder.name} This action cannot be undone `}
+        itemName={folder.name}
+        onConfirm={() => {
+          handleDelete();
+        }}
+      />
+      <UpdateDialog
+        open={UpdateDialogOpen}
+        onOpenChange={setUpdateDialogOpen}
+        folderId={folder._id}
+      />
+      <MoveDialog
+        open={openMoveDialog}
+        onOpenChange={setOpenMoveDialog}
+        folderId={folder._id}
+      />
     </div>
   );
 };

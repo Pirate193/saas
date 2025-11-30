@@ -33,6 +33,8 @@ import NoteItem from "../notescomponents/noteItem";
 import Uploadfile from "../filescomponents/uploadfile";
 import Createflashcard from "../flashcardComponents/createFlashcard";
 import FlashcardAIGenerateDialog from "../flashcardComponents/ai-flashcard";
+import MoveDialog from "../folderscomponents/movedialog";
+import { toast } from "sonner";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -141,6 +143,7 @@ export function FolderTreeItem({
     useState(false); //create flashcard dialog state
   const [openAiFlashcardDialog, setOpenAiFlashcardDialog] = useState(false); //ai flashcard dialog state
   const [openDeleteFileDialog, setOpenDeleteFileDialog] = useState(false); //delete file dialog state
+  const [openMoveDialog, setOpenMoveDialog] = useState(false); //move dialog state
 
   const [fileToDelete, setFileToDelete] = useState<Id<"files"> | null>(null);
   const [filenametoDelete, setFilenameToDelete] = useState<string | null>(null);
@@ -237,7 +240,12 @@ export function FolderTreeItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setIsCreateSubfolderOpen(true)}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCreateSubfolderOpen(true);
+                }}
+              >
                 <Folder className="h-4 w-4 mr-2" />
                 New Folder
               </DropdownMenuItem>
@@ -247,16 +255,29 @@ export function FolderTreeItem({
                 New Note
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => setOpenCreateFlashcardDialog(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenCreateFlashcardDialog(true);
+                }}
               >
                 <CreditCard className="h-4 w-4 mr-2" />
                 New Flashcard
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setOpenAiFlashcardDialog(true)}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenAiFlashcardDialog(true);
+                }}
+              >
                 <Sparkles className="h-4 w-4 mr-2" />
                 AI Flashcard
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setOpenUploadDialog(true)}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenUploadDialog(true);
+                }}
+              >
                 <FileIcon className="h-4 w-4 mr-2" />
                 Upload File
               </DropdownMenuItem>
@@ -271,22 +292,30 @@ export function FolderTreeItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setUpdateDialogOpen(true)}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUpdateDialogOpen(true);
+                }}
+              >
                 Rename
                 {/* TODO: Open inline input or dialog to rename folder */}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log("Move")}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenMoveDialog(true);
+                }}
+              >
                 Move to...
-                {/* TODO: Open folder picker to move this folder to another parent */}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => console.log("Duplicate")}>
-                Duplicate
-                {/* TODO: Create a copy of this folder and all its contents */}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => setOpenDeleteDialog(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenDeleteDialog(true);
+                }}
               >
                 Delete
                 {/* TODO: Confirm deletion, then call api.folders.delete */}
@@ -419,7 +448,14 @@ export function FolderTreeItem({
         itemName={filenametoDelete!}
         onConfirm={() => {
           deleteFile({ fileId: fileToDelete as Id<"files"> });
+          toast.success("File deleted successfully");
+          router.push("/home");
         }}
+      />
+      <MoveDialog
+        open={openMoveDialog}
+        onOpenChange={setOpenMoveDialog}
+        folderId={folder._id}
       />
     </div>
   );

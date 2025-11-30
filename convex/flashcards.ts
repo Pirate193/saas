@@ -45,6 +45,10 @@ export const deleteFlashcard = mutation({
         if(!flashcard || flashcard.userId !== user.subject){
             throw new Error("Flashcard not found or access denied.");
         }
+        const review = await ctx.db.query('flashcardReviews').withIndex('by_flashcard',(q)=>q.eq('flashcardId',args.flashcardId)).collect();
+        await Promise.all(review.map((r)=>ctx.db.delete(r._id)));
+        const progress = await ctx.db.query('flashcardProgress').withIndex('by_user_flashcard',(q)=>q.eq('userId',user.subject)).collect();
+        await Promise.all(progress.map((p)=>ctx.db.delete(p._id)));
         await ctx.db.delete(args.flashcardId);
     }
 })

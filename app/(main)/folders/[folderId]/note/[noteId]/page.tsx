@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/resizable";
 import { useAiStore } from "@/stores/aiStore";
 import AiModal from "@/components/ai/aimodal";
+import CanvasModal from "@/components/ai/canvasmodal";
 const Notespage = () => {
   const params = useParams();
   const noteId = params.noteId;
@@ -54,6 +55,7 @@ const Notespage = () => {
           </>
         )}
       </ResizablePanelGroup>
+      <CanvasModal />
     </div>
   );
 };
