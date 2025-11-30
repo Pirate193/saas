@@ -1,10 +1,14 @@
-'use client';
+"use client";
 import { Plus } from "lucide-react";
 import CreateFolder from "../folderscomponents/create-folder";
-import { SidebarGroup, SidebarGroupLabel, SidebarGroupContent } from "../ui/sidebar";
+import {
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+} from "../ui/sidebar";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { FolderTreeItem } from "./folder-tree-item";
+import { FolderTreeItem, NoteData } from "./folder-tree-item";
 import { Id } from "@/convex/_generated/dataModel";
 import { useState } from "react";
 
@@ -37,7 +41,7 @@ const Navfolders = () => {
   const getFolderItemCounts = (folderId: Id<"folders"> | string) => {
     const folderNotes = notes.filter((note) => note.folderId === folderId);
     const subfolders = folders.filter((f) => f.parentId === folderId);
-    
+
     return {
       notes: folderNotes.length,
       subfolders: subfolders.length,
@@ -50,13 +54,16 @@ const Navfolders = () => {
     <SidebarGroup>
       <SidebarGroupLabel className="flex items-center justify-between group/label">
         Folders
-    
-            <button className="opacity-0 group-hover/label:opacity-60 hover:opacity-100! transition-opacity" onClick={() => setIsCreateFolderOpen(true)}>
-              <Plus className="h-4 w-4" />
-            </button>
-         <CreateFolder 
-         open={isCreateFolderOpen}
-         onOpenChange={setIsCreateFolderOpen} />
+        <button
+          className="opacity-0 group-hover/label:opacity-60 hover:opacity-100! transition-opacity"
+          onClick={() => setIsCreateFolderOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <CreateFolder
+          open={isCreateFolderOpen}
+          onOpenChange={setIsCreateFolderOpen}
+        />
       </SidebarGroupLabel>
       <SidebarGroupContent>
         {rootFolders.length === 0 ? (
@@ -70,7 +77,7 @@ const Navfolders = () => {
                 key={folder._id}
                 folder={folder}
                 allFolders={folders}
-                allNotes={notes}
+                allNotes={notes as NoteData[]}
                 level={0}
                 buildFolderTree={buildFolderTree}
                 getFolderItemCounts={getFolderItemCounts}

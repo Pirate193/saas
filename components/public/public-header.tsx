@@ -45,7 +45,7 @@ const PublicHeader = ({ folderId }: PublicHeaderProps) => {
   };
 
   return (
-    <div className="relative w-full h-[20vh] min-h-[200px] group shrink-0 bg-muted/30">
+    <div className="relative w-full h-[30vh] min-h-[200px] group shrink-0 bg-muted/30">
       {/* --- 1. Banner Image --- */}
       {geturl ? (
         <Image
@@ -60,10 +60,10 @@ const PublicHeader = ({ folderId }: PublicHeaderProps) => {
       )}
 
       {/* --- 2. Dark Overlay for Text Readability --- */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-b from-black/40 via-transparent to-black/60 pointer-events-none" />
 
       {/* --- 3. Top Navigation (Trigger & Public Badge) --- */}
-      <div className="absolute top-0 left-0 w-full p-4 z-10 flex justify-between items-start">
+      <div className="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-start">
         {/* Left: Sidebar Trigger */}
         <div className="flex items-center">
           <SidebarTrigger
@@ -108,25 +108,23 @@ const PublicHeader = ({ folderId }: PublicHeaderProps) => {
       </div>
 
       {/* --- 4. Folder Name (Bottom Overlay) --- */}
-      <div className="absolute bottom-0 left-0 w-full p-6 z-10">
-        <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-md">
-          {folder.name}
-        </h1>
-        {folder.description && (
-          <p className="text-white/90 mt-2 text-lg max-w-2xl drop-shadow-sm line-clamp-2">
-            {folder.description}
-          </p>
-        )}
-        <Badge variant="outline" className="m-2">
-          <Copy className="h-3.5 w-3.5" />
-          Cloned
-          <span className="ml-2">{folder.cloneCount}</span>
-        </Badge>
-        <Badge variant="outline" className="m-2">
-          <Bookmark className="h-3.5 w-3.5" />
-          Saved
-          <span className="ml-2">{folder.savedCount}</span>
-        </Badge>
+      <div className="absolute bottom-0 left-0 w-full px-6 z-10 flex flex-col justify-end pointer-events-none space-y-2">
+        <div className="pointer-events-auto">
+          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-md">
+            {folder.name}
+          </h1>
+
+          <Badge variant="outline" className="m-2">
+            <Copy className="h-3.5 w-3.5" />
+            Cloned
+            <span className="ml-2">{folder.cloneCount}</span>
+          </Badge>
+          <Badge variant="outline" className="m-2">
+            <Bookmark className="h-3.5 w-3.5" />
+            Saved
+            <span className="ml-2">{folder.savedCount}</span>
+          </Badge>
+        </div>
       </div>
     </div>
   );

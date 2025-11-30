@@ -1,4 +1,5 @@
 import AiModal from "@/components/ai/aimodal";
+import CanvasModal from "@/components/ai/canvasmodal";
 import { AppSidebar } from "@/components/sidebarcomponents/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "sonner";
@@ -16,6 +17,7 @@ export default function MainLayout({
       <SidebarInset>
         {children}
         <Toaster />
+        <CanvasModal />
       </SidebarInset>
     </SidebarProvider>
   );

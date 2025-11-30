@@ -111,7 +111,7 @@ export async function POST(req: Request) {
 - Inline math: $E=mc^2$
 - Complex formulas: $\\frac{a}{b}$, $\\sum_{i=1}^{n}$, $\\sqrt{x}$
 
-### Custom Blocks:
+### Custom Blocks:only apply to 
 
 **YouTube Videos**:
 @youtube[https://youtube.com/watch?v=VIDEO_ID]

@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toast } from "sonner";
 
 /**
  * Helper function to parse a YouTube URL and extract the video ID.
@@ -58,7 +59,7 @@ function YoutubeVideoBlock({ block, editor }: any) {
 
     if (!videoId) {
       // Simple validation: Shake or alert (using alert for simplicity here)
-      alert("Invalid YouTube URL. Please check the link.");
+      toast.error("Invalid YouTube URL. Please check the link.");
       return;
     }
 

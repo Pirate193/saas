@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 
+
 interface BlockNoteBlock {
   id: string;
   type: string;
@@ -72,30 +73,38 @@ function parseLine(line: string, allLines: string[], currentIndex: number): Bloc
   }
 
   // YouTube Video (@youtube[URL])
-  const youtubeMatch = trimmed.match(/^@youtube\[(.+?)\]$/);
+  const youtubeMatch = trimmed.match(/^@youtube\s*\[\s*(.+?)\s*\]\s*$/i);
   if (youtubeMatch) {
     let videoUrl = youtubeMatch[1].trim();
     
-    // Convert regular YouTube URL to embed format
-    if (videoUrl.includes('youtube.com/watch?v=')) {
-      const videoId = new URL(videoUrl).searchParams.get('v');
-      videoUrl = `https://www.youtube.com/embed/${videoId}`;
-    } else if (videoUrl.includes('youtu.be/')) {
-      const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-      videoUrl = `https://www.youtube.com/embed/${videoId}`;
+    // Convert to Embed URL if needed
+    try {
+      if (videoUrl.includes('youtube.com/watch')) {
+        const urlObj = new URL(videoUrl);
+        const v = urlObj.searchParams.get('v');
+        if (v) videoUrl = `https://www.youtube.com/embed/${v}`;
+      } else if (videoUrl.includes('youtu.be/')) {
+        const v = videoUrl.split('youtu.be/')[1]?.split('?')[0];
+        if (v) videoUrl = `https://www.youtube.com/embed/${v}`;
+      }
+    } catch (e) {
+      // If URL parsing fails, keep original
+      console.warn("Failed to parse YouTube URL:", videoUrl);
     }
     
-    return {
-      id: randomUUID(),
-      type: 'youtubeVideo',
-      props: {
-        backgroundColor: 'default',
-        textColor: 'default',
-        textAlignment: 'left',
-        videoUrl: videoUrl
-      },
-      children: []
-    };
+  
+      const block= {
+        id: randomUUID(),
+        type: 'youtubeVideo',
+        props: {
+          backgroundColor: 'default',
+          textColor: 'default',
+          textAlignment: 'left',
+          videoUrl: videoUrl
+        },
+        children: []
+      }
+    return block;
   }
 
   // Quiz Block (@quiz[topic]{JSON})
@@ -147,7 +156,7 @@ if (quizMatch) {
     const jsonContent = fullContent.substring(startBrace + 1, endBrace).trim();
     
     // Validate it's proper JSON array
-    const parsed = JSON.parse(jsonContent);
+    const parsed = safeJsonParse(jsonContent);
     
     if (!Array.isArray(parsed)) {
       throw new Error('Quiz data must be a JSON array');
@@ -459,6 +468,26 @@ function createTextContent(
     text,
     styles,
   };
+}
+function safeJsonParse(jsonString: string): any[] {
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    // 1. Try identifying bad escapes.
+    // Regex explanation: Match a backslash '\' that is NOT followed by:
+    // - another backslash or quote (["\\])
+    // - a valid control character ([bfnrt])
+    // - a unicode sequence (u)
+    // We replace it with double backslash '\\'
+    const fixedString = jsonString.replace(/\\(?![\\"/bfnrtu])/g, "\\\\");
+    
+    try {
+      return JSON.parse(fixedString);
+    } catch (e2) {
+      console.error("JSON Repair Failed:", e2);
+      throw e; // Original error was likely the real issue if repair fails
+    }
+  }
 }
 
 /**

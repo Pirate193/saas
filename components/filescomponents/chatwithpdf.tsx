@@ -574,7 +574,7 @@ const Chatwithpdf = ({ fileId }: ChatwithpdfProps) => {
               </div>
             ))
           )}
-          {status === "submitted" && <Shimmer>Thinking...</Shimmer>}
+          {status === "submitted" && <Shimmer>Just a Sec...</Shimmer>}
         </ConversationContent>
       </Conversation>
       <PromptInput onSubmit={handleSubmit}>

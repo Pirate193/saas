@@ -45,7 +45,9 @@ export async function generateFlashcardsContent(formData: FormData) {
       context = transcript.map((t: any) => t.text).join(" ").slice(0, 30000);
       console.log(transcript);
     } else if (type === "pdf") {
+      //@ts-ignore
       const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+      //@ts-ignore
       await import("pdfjs-dist/build/pdf.worker.min.mjs");
 
       const file = formData.get("file") as File;

@@ -166,7 +166,7 @@ const Dashboard = ({ folderId }: Props) => {
             priority
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-r from-muted to-muted/50" />
+          <div className="w-full h-full bg-linear-to-r from-muted to-muted/50" />
         )}
 
         {/* Dark Overlay Gradient for text readability */}

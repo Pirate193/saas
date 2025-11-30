@@ -113,7 +113,12 @@ export default function PublicFolderPage() {
       {/* Main Content */}
       <div className="flex-1  md:p-10 max-w-6xl mx-auto w-full">
         <div className="mb-8">
-          <h2 className="text-xl font-semibold mb-2">Content Overview</h2>
+          {folder.description && (
+            <p className="mt-2 text-base max-w-2xl drop-shadow-sm line-clamp-2">
+              {folder.description}
+            </p>
+          )}
+          <h2 className="text-xl font-semibold mb-2">Content Overview:</h2>
         </div>
 
         {/* Stats Grid */}

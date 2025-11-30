@@ -178,7 +178,6 @@ const FilePage = () => {
         onOpenChange={setIsLimitModalOpen}
         limitType="chat_pdf"
       />
-      <CanvasModal />
     </div>
   );
 };

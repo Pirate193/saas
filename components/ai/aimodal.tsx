@@ -71,7 +71,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { nanoid } from "nanoid";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@clerk/nextjs";
 import { Tool, ToolContent, ToolHeader } from "@/components/ai-elements/tool";
@@ -84,8 +84,11 @@ import {
   GetFolderItems,
   GetUserFlashcards,
   LoadingCodeSnippet,
+  LoadingFlashcard,
   LoadingMermaidDiagram,
+  LoadingNote,
   SourceGrid,
+  SourceGridWithPdf,
   UpdateNote,
   YouTubeEmbed,
 } from "@/components/ai/tools";
@@ -116,6 +119,7 @@ export default function AiModal() {
   // +++ DATA FOR TAGGING UI +++
   const allFolders = useQuery(api.folders.fetchFolders);
   const allNotes = useQuery(api.notes.fetchNotes); // Fetches all notes
+  const generateSmartTitle = useAction(api.chat.generateChatTitle);
 
   // Filtered data for the command list
 
@@ -252,6 +256,10 @@ export default function AiModal() {
           messageText.slice(0, 50) + (messageText.length > 50 ? "..." : "");
         currentChatId = await createChat({ title });
         setActiveChatId(currentChatId);
+        generateSmartTitle({
+          chatId: currentChatId as Id<"chats">,
+          userPrompt: messageText,
+        });
         console.log(" Chat created:", currentChatId);
         await addMessage({
           chatId: currentChatId as Id<"chats">,
@@ -399,52 +407,40 @@ export default function AiModal() {
                   }
                   if (part.type === "tool-createNote") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-createNote"
-                          title="Creating Note"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <CreateNote output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingNote title="Creating Note" />
+                        )}
+                        {part.state === "output-available" && (
+                          <CreateNote output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-updateNote") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-updateNote"
-                          title="Updating Note"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <UpdateNote output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingNote title="Updating Note" />
+                        )}
+                        {part.state === "output-available" && (
+                          <UpdateNote output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-generateFlashcards") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-generateFlashcards"
-                          title="Creating Flashcard"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <CreateFlashcard output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Generating Flashcards" />
+                        )}
+                        {part.state === "output-available" && (
+                          <CreateFlashcard output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
@@ -467,35 +463,27 @@ export default function AiModal() {
 
                   if (part.type === "tool-getUserFlashcards") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-getUserFlashcards"
-                          title="Fetching Flashcards"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <GetUserFlashcards output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Fetching Flashcards" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GetUserFlashcards output={part.output} />
+                        )}
+                      </div>
                     );
                   }
 
                   if (part.type === "tool-getFlashcard") {
                     return (
-                      <Tool key={`${message.id}-${i}`}>
-                        <ToolHeader
-                          state={part.state}
-                          type="tool-getFlashcard"
-                          title="Analyzing Flashcard"
-                        />
-                        <ToolContent>
-                          {part.state === "output-available" && (
-                            <GetFlashcard output={part.output} />
-                          )}
-                        </ToolContent>
-                      </Tool>
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <LoadingFlashcard title="Fetching Flashcard" />
+                        )}
+                        {part.state === "output-available" && (
+                          <GetFlashcard output={part.output} />
+                        )}
+                      </div>
                     );
                   }
                   if (part.type === "tool-searchTheWeb") {
@@ -552,6 +540,21 @@ export default function AiModal() {
                       <div key={`${message.id}-${i}`}>
                         {part.state === "output-available" && (
                           <YouTubeEmbed output={part.output} />
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (part.type === "tool-searchWithPdf") {
+                    return (
+                      <div key={`${message.id}-${i}`}>
+                        {part.state === "input-available" && (
+                          <div className="flex items-center gap-2">
+                            <Spinner /> <p> Studying PDF...</p>
+                          </div>
+                        )}
+                        {part.state === "output-available" && (
+                          <SourceGridWithPdf output={part.output} />
                         )}
                       </div>
                     );
