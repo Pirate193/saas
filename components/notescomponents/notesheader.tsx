@@ -10,6 +10,7 @@ import {
   Copy,
   Download,
   Folder,
+  Mic,
   MoreHorizontal,
   Pencil,
   SlashIcon,
@@ -42,6 +43,7 @@ import {
   blockNoteToPlainText,
 } from "@/lib/convertmarkdowntoblock";
 import { useAiStore } from "@/stores/aiStore";
+import { TranscribeDialog } from "./Transcribe";
 
 interface Props {
   noteId: Id<"notes">;
@@ -55,6 +57,7 @@ const Notesheader = ({ noteId }: Props) => {
   });
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openRenameDialog, setOpenRenameDialog] = useState(false);
+  const [openTranscribeDialog, setOpenTranscribeDialog] = useState(false);
   const deletenote = useMutation(api.notes.deleteNote);
   const { onOpen, isOpen } = useAiStore();
 
@@ -126,6 +129,10 @@ const Notesheader = ({ noteId }: Props) => {
     }
   };
 
+  const handleTranscribe = (text: string) => {
+    console.log("Transcribed text:", text);
+    // TODO: Send text to backend to process
+  };
   return (
     <>
       <div className="p-4 flex items-center justify-between gap-2">
@@ -176,6 +183,10 @@ const Notesheader = ({ noteId }: Props) => {
                 <Pencil className="mr-2 h-4 w-4" />
                 Rename
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setOpenTranscribeDialog(true)}>
+                <Mic className="mr-2 h-4 w-4" />
+                Transcribe
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => setOpenDeleteDialog(true)}
                 className="text-destructive"
@@ -207,6 +218,11 @@ const Notesheader = ({ noteId }: Props) => {
         description={`Are you sure you want to delete ${note.title} This action cannot be undone.`}
         itemName={note.title}
         onConfirm={handledelete}
+      />
+      <TranscribeDialog
+        open={openTranscribeDialog}
+        onOpenChange={setOpenTranscribeDialog}
+        onTranscribe={handleTranscribe}
       />
     </>
   );

@@ -66,8 +66,32 @@ export const QuizBlock = createReactBlockSpec(
         if (!topicInput) return;
         setIsLoading(true);
         try {
+          // props.editor.document gives us the array of blocks
+          const allBlocks = props.editor.document;
+
+          // Simple helper to extract text from blocks
+          const noteContent = allBlocks
+            .map((block: any) => {
+              // <--- Cast to 'any' fixes the TS error
+              // Safety check: Only try to map if content is actually an array (like text blocks)
+              if (Array.isArray(block.content)) {
+                return block.content
+                  .map((c: any) => c.text || "") // Extract text from inline content
+                  .join("");
+              }
+              // If it's a void block (like a divider, image, or your quiz block), return empty string
+              return "";
+            })
+            .filter((text: string) => text.trim() !== "") // Remove empty lines
+            .join("\n");
+
+          console.log("Context for AI:", noteContent); // Debugging: See what the AI gets
           const count = parseInt(numQuestions);
-          const data = await generateQuizzesAction(topicInput, count);
+          const data = await generateQuizzesAction(
+            topicInput,
+            count,
+            noteContent
+          );
           props.editor.updateBlock(props.block, {
             props: {
               topic: topicInput,
@@ -286,7 +310,10 @@ const QuizCard = ({
   };
 
   return (
-    <Card className="w-full shadow-sm border bg-card text-card-foreground">
+    <Card
+      className="w-full shadow-sm border bg-card text-card-foreground"
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <CardContent className="pt-6 px-6">
         {/* Header Badges */}
         <div className="flex gap-2 mb-4">

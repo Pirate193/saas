@@ -343,8 +343,6 @@ function CustomSlashMenu(
       {/* Scrollable area for long lists */}
       <ScrollArea className="max-h-72 ">
         {" "}
-        {/* You can adjust max-h */}
-        {/* We add p-1 here so the scrollbar doesn't overlap the content */}
         <div className="p-1">
           {props.items.length > 0 ? (
             props.items.map((item, index) => {

@@ -1,5 +1,5 @@
 import { streamText, UIMessage, convertToModelMessages, tool, stepCountIs } from "ai";
-import { google } from '@ai-sdk/google';
+import { google, GoogleGenerativeAIProviderOptions } from '@ai-sdk/google';
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
@@ -61,125 +61,79 @@ export async function POST(req: Request) {
     ? `The user has also tagged the following notes: ${contextNote.map(n => `"${n.title}" (ID: ${n._id})`).join(', ')}. You can use tools to interact with these notes if needed.`
     : `No notes are currently tagged.`;
 const notecontentrules = `
-5.  **IMPORTANT**: The \`content\` for \`updateNote\` and \`createNote\` MUST be written in standard **Markdown**.
+When creating or updating notes, you MUST use the structured JSON format, NOT markdown.
 
-**IMPORTANT**:  when writing in markdown make sure you follow these syntax 
-## Your Output Format Rules:
+### Block Types Available:
 
-### Standard Markdown:
-- Headings: # ## ### (max 3 levels)
-- Bold: **text** or __text__
-- Italic: *text* or _text_
-- Code: \`inline code\`
-- Code blocks: \`\`\`language ... \`\`\`
-- Lists: - or 1. or - [ ]
-- Tables: | Header | ... |
-- Quotes: > text
-- Dividers: ---
+1. **Heading**: { "type": "heading", "level": "1"|"2"|"3", "text": "..." }
+2. **Paragraph**: { "type": "paragraph", "text": "..." }
+3. **Bullet List**: { "type": "bulletList", "items": ["item1", "item2"] }
+4. **Numbered List**: { "type": "numberedList", "items": ["item1", "item2"] }
+5. **Check List**: { "type": "checkList", "items": [{"text": "...", "checked": true}] }
+6. **Code Block**: { "type": "codeBlock", "language": "python", "code": "..." }
+7. **Quote**: { "type": "quote", "text": "..." }
+8. **Divider**: { "type": "divider" }
+9. **Table**: { "type": "table", "headers": [...], "rows": [[...], [...]] }
+10. **YouTube**: { "type": "youtube", "url": "https://youtube.com/watch?v=..." }
+11. **Quiz**: { "type": "quiz", "topic": "...", "questions": [...] }
 
-### Math (Use Single $):
-- Inline math: $E=mc^2$
-- Complex formulas: $\\frac{a}{b}$, $\\sum_{i=1}^{n}$, $\\sqrt{x}$
+### Inline Formatting in Text:
+- Bold: **text**
+- Italic: *text*
+- Code: \`code\`
+- Math: $formula$ (use LaTeX: $\\frac{a}{b}$, $x^2$, $\\sqrt{x}$)
 
-### Custom Blocks:
+### Complete Example:
 
-**YouTube Videos**:
-@youtube[https://youtube.com/watch?v=VIDEO_ID]
-
-**Quiz/Flashcards** (JSON must be valid):
-@quiz[Topic Name]{
-[
-  {
-    "question": "Question text?",
-    "type": "single",
-    "difficulty": "Easy",
-    "options": ["A", "B", "C", "D"],
-    "correctAnswers": ["B"],
-    "explanation": "Why B is correct. Can use $math$ here."
-  }
-]
+{
+  "title": "Introduction to Calculus",
+  "blocks": [
+    {
+      "type": "heading",
+      "level": "1",
+      "text": "Introduction to Calculus"
+    },
+    {
+      "type": "paragraph",
+      "text": "Calculus studies continuous change. The derivative formula is $f'(x) = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}$."
+    },
+    {
+      "type": "codeBlock",
+      "language": "python",
+      "code": "def derivative(f, x, h=0.001):\\n    return (f(x + h) - f(x)) / h"
+    },
+    {
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=WUvTyaaNkzM"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "quiz",
+      "topic": "Derivatives",
+      "questions": [
+        {
+          "question": "What is the derivative of $x^2$?",
+          "type": "single",
+          "difficulty": "Easy",
+          "options": ["$x$", "$2x$", "$x^2$", "$2x^2$"],
+          "correctAnswers": ["$2x$"],
+          "explanation": "Using the power rule: $\\frac{d}{dx}(x^n) = nx^{n-1}$, so $\\frac{d}{dx}(x^2) = 2x$."
+        }
+      ]
+    }
+  ]
 }
 
 ## Rules:
-1. Output ONLY markdown, no preamble
-2. Use single $ for math (not $$)
-3. Valid JSON in quiz blocks
-4. Include YouTube videos for visual topics
-5. Add quizzes after major sections
-6. Structure with clear headings
-7. Use tables for comparisons
+1. Always use this structured JSON format when calling createNote or updateNote
+2. NO markdown syntax in the JSON structure
+3. Text fields can use inline formatting: **bold**, *italic*, \`code\`, $math$
+4. Quiz questions must have valid correctAnswers matching options exactly
+5. YouTube URLs will be auto-converted to embed format
 
-## Example Output:
-
-# Introduction to Topic
-
-Brief overview with key formula $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$.
-
-## Key Concept
-
-Explanation here.
-
-\`\`\`python
-# Code example
-def example():
-    return "Hello"
-\`\`\`
-
-@youtube[https://youtube.com/watch?v=relevant_video]
-
----
-
- **Quiz/Flashcards** (JSON must be valid):
-@quiz[Topic Name]{
-[
-  {
-    "question": "Question text here?",
-    "type": "single",
-    "difficulty": "Easy",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswers": ["Option B"],
-    "explanation": "Detailed explanation here."
-  },
-  {
-    "question": "Another question?",
-    "type": "multiple",
-    "difficulty": "Medium",
-    "options": ["A", "B", "C", "D"],
-    "correctAnswers": ["A", "C"],
-    "explanation": "Explanation for multiple choice."
-  }
-]
-}
-
-**CRITICAL QUIZ RULES**:
-1. The JSON MUST be a valid array inside the outer braces: @quiz[Topic]{ [array] }
-2. NO trailing commas in JSON objects or arrays
-3. All strings MUST use double quotes, not single quotes
-4. Escape special characters: use \\" for quotes inside strings, \\\\ for backslashes
-5. For math in explanations, use single $: "explanation": "The formula $x^2$ shows..."
-6. Newlines in strings must be escaped: \\n
-7. Test that your JSON is valid before outputting
-
-**Valid Example**:
-@quiz[Calculus]{
-[
-  {
-    "question": "What is the derivative of $x^2$?",
-    "type": "single",
-    "difficulty": "Easy",
-    "options": ["$x$", "$2x$", "$x^2$", "$2x^2$"],
-    "correctAnswers": ["$2x$"],
-    "explanation": "Using the power rule: $\\frac{d}{dx}(x^n) = nx^{n-1}$, so $\\frac{d}{dx}(x^2) = 2x^1 = 2x$."
-  }
-]
-}
-
-**Invalid Examples** (DO NOT DO THIS):
-❌ @quiz[Topic]{ {"question": "..."} }  // Not an array
-❌ @quiz[Topic]{ [..., ] }  // Trailing comma
-❌ @quiz[Topic]{ ['options'] }  // Single quotes
-❌ @quiz[Topic]{ [..., "explanation": "Use "quotes" here"] }  // Unescaped quotes
-
+This structured approach ensures perfect conversion with no parsing errors.
 
 `;
   const userInfo = await convex.query(api.user.getCurrentUser);
@@ -206,7 +160,7 @@ You have two ways to read the document:
 - **Visuals**: If a concept is complex (processes, hierarchies), use \`generateMermaidDiagram\`.
 
 ## 5. NOTE TAKING FORMAT (CRITICAL)
-   -this special format like youtube and quiz only apply to notecontent ${notecontentrules}
+   -${notecontentrules}
 
 ## 6. CITATION RULES
 When answering questions based on the PDF (either from context or the tool):
@@ -218,15 +172,37 @@ When answering questions based on the PDF (either from context or the tool):
 ${pdfText ? pdfText.slice(0, 50000) : "No text preview available."}
 ... [Content truncated, use searchWithPdf tool for more]
 </PDF_PREVIEW>
+
+### SOP: CREATING NOTES
+When asked to create a note, you MUST follow this strictly:
+1. **Plan**: Outline the topic.
+2. **Search Video**: You MUST call the \`youtubeVideo\` tool to find a real, relevant tutorial link for the topic.
+3. **Generate Content**: Create the note using the \`createNote\` tool.
+   - The note MUST include the YouTube video you found (using the 'youtubeVideo' block type).
+   - The note MUST end with a 'quiz' block containing 3-5 questions to test the user.
+   - Use 'heading', 'codeBlock', and 'table' blocks to make it rich.
+
+### SOP: UPDATING NOTES
+When asked to update or add to a note, you MUST:
+1. **Fetch**: Call \`getNoteContent\` to read the current text (it returns Markdown).if you see @youtube[] that is a youtube video link or @quiz[] that is a quiz block (it is how the function converts blocknote to markdown for you dont use the symbols anywhere they are for you).
+2. **Update**: Update the note using the \`updateNote\` tool.
 `;
   // END SYSTEM PROMPT 
 
   const tools = createTools(convex);
   
   const result = streamText({
-    model: thinking ? google('gemini-2.5-pro') :google('gemini-2.5-flash'),
+    model:google('gemini-2.5-pro') ,
     messages: convertToModelMessages(messages),
     system: system, 
+     providerOptions: {
+          google: {
+            thinkingConfig: {
+              thinkingBudget: 8192,
+              includeThoughts: true,
+            },
+          } satisfies GoogleGenerativeAIProviderOptions,
+        },
     tools,
     stopWhen: stepCountIs(10),
   });

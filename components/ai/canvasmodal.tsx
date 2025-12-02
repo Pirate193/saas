@@ -11,7 +11,7 @@ const CanvasModal = () => {
   const { activeView, setCanvasOpen, isCanvasOpen } = useCanvasStore();
   return (
     <Dialog open={isCanvasOpen} onOpenChange={setCanvasOpen}>
-      <DialogContent className=" max-h-[calc(100vh-2rem)]   md:max-w-[700px] lg:max-w-[800px] overflow-y-auto scrollbar-hidden">
+      <DialogContent className=" max-h-[calc(100vh-2rem)]   md:max-w-[800px] lg:max-w-[900px] flex flex-col h-full overflow-y-auto scrollbar-hidden">
         <DialogHeader>
           <DialogTitle>Canvas</DialogTitle>
         </DialogHeader>

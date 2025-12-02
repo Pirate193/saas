@@ -31,6 +31,7 @@ import {
   YoutubeVideoOutput,
 } from "@/types/aitoolstypes";
 import { query } from "@/convex/_generated/server";
+import { BlockContentSchema, blocksSchema, convertSchemaToBlockNote, NoteStructureSchema } from "@/lib/ai-block-parser";
 
 export const maxDuration = 30;
 
@@ -91,125 +92,79 @@ export async function POST(req: Request) {
 
 
  const notecontentrules = `
-5.  **IMPORTANT**: The \`content\` for \`updateNote\` and \`createNote\` MUST be written in standard **Markdown**.
+When creating or updating notes, you MUST use the structured JSON format, NOT markdown.
 
-**IMPORTANT**:  when writing in markdown make sure you follow these syntax 
-## Your Output Format Rules:
+### Block Types Available:
 
-### Standard Markdown:
-- Headings: # ## ### (max 3 levels)
-- Bold: **text** or __text__
-- Italic: *text* or _text_
-- Code: \`inline code\`
-- Code blocks: \`\`\`language ... \`\`\`
-- Lists: - or 1. or - [ ]
-- Tables: | Header | ... |
-- Quotes: > text
-- Dividers: ---
+1. **Heading**: { "type": "heading", "level": "1"|"2"|"3", "text": "..." }
+2. **Paragraph**: { "type": "paragraph", "text": "..." }
+3. **Bullet List**: { "type": "bulletList", "items": ["item1", "item2"] }
+4. **Numbered List**: { "type": "numberedList", "items": ["item1", "item2"] }
+5. **Check List**: { "type": "checkList", "items": [{"text": "...", "checked": true}] }
+6. **Code Block**: { "type": "codeBlock", "language": "python", "code": "..." }
+7. **Quote**: { "type": "quote", "text": "..." }
+8. **Divider**: { "type": "divider" }
+9. **Table**: { "type": "table", "headers": [...], "rows": [[...], [...]] }
+10. **YouTube**: { "type": "youtube", "url": "https://youtube.com/watch?v=..." }
+11. **Quiz**: { "type": "quiz", "topic": "...", "questions": [...] }
 
-### Math (Use Single $):
-- Inline math: $E=mc^2$
-- Complex formulas: $\\frac{a}{b}$, $\\sum_{i=1}^{n}$, $\\sqrt{x}$
+### Inline Formatting in Text:
+- Bold: **text**
+- Italic: *text*
+- Code: \`code\`
+- Math: $formula$ (use LaTeX: $\\frac{a}{b}$, $x^2$, $\\sqrt{x}$)
 
-### Custom Blocks:only apply to 
+### Complete Example:
 
-**YouTube Videos**:
-@youtube[https://youtube.com/watch?v=VIDEO_ID]
-
-**Quiz/Flashcards** (JSON must be valid):
-@quiz[Topic Name]{
-[
-  {
-    "question": "Question text?",
-    "type": "single",
-    "difficulty": "Easy",
-    "options": ["A", "B", "C", "D"],
-    "correctAnswers": ["B"],
-    "explanation": "Why B is correct. Can use $math$ here."
-  }
-]
+{
+  "title": "Introduction to Calculus",
+  "blocks": [
+    {
+      "type": "heading",
+      "level": "1",
+      "text": "Introduction to Calculus"
+    },
+    {
+      "type": "paragraph",
+      "text": "Calculus studies continuous change. The derivative formula is $f'(x) = \\lim_{h \\to 0} \\frac{f(x+h) - f(x)}{h}$."
+    },
+    {
+      "type": "codeBlock",
+      "language": "python",
+      "code": "def derivative(f, x, h=0.001):\\n    return (f(x + h) - f(x)) / h"
+    },
+    {
+      "type": "youtube",
+      "url": "https://www.youtube.com/watch?v=WUvTyaaNkzM"
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "type": "quiz",
+      "topic": "Derivatives",
+      "questions": [
+        {
+          "question": "What is the derivative of $x^2$?",
+          "type": "single",
+          "difficulty": "Easy",
+          "options": ["$x$", "$2x$", "$x^2$", "$2x^2$"],
+          "correctAnswers": ["$2x$"],
+          "explanation": "Using the power rule: $\\frac{d}{dx}(x^n) = nx^{n-1}$, so $\\frac{d}{dx}(x^2) = 2x$."
+        }
+      ]
+    }
+  ]
 }
 
 ## Rules:
-1. Output ONLY markdown, no preamble
-2. Use single $ for math (not $$)
-3. Valid JSON in quiz blocks
-4. Include YouTube videos for visual topics
-5. Add quizzes after major sections
-6. Structure with clear headings
-7. Use tables for comparisons
+1. Always use this structured JSON format when calling createNote or updateNote
+2. NO markdown syntax in the JSON structure
+3. Text fields can use inline formatting: **bold**, *italic*, \`code\`, $math$
+4. Quiz questions must have valid correctAnswers matching options exactly
+5. YouTube URLs will be auto-converted to embed format
 
-## Example Output:
-
-# Introduction to Topic
-
-Brief overview with key formula $x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$.
-
-## Key Concept
-
-Explanation here.
-
-\`\`\`python
-# Code example
-def example():
-    return "Hello"
-\`\`\`
-
-@youtube[https://youtube.com/watch?v=relevant_video]
-
----
-
- **Quiz/Flashcards** (JSON must be valid):
-@quiz[Topic Name]{
-[
-  {
-    "question": "Question text here?",
-    "type": "single",
-    "difficulty": "Easy",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswers": ["Option B"],
-    "explanation": "Detailed explanation here."
-  },
-  {
-    "question": "Another question?",
-    "type": "multiple",
-    "difficulty": "Medium",
-    "options": ["A", "B", "C", "D"],
-    "correctAnswers": ["A", "C"],
-    "explanation": "Explanation for multiple choice."
-  }
-]
-}
-
-**CRITICAL QUIZ RULES**:
-1. The JSON MUST be a valid array inside the outer braces: @quiz[Topic]{ [array] }
-2. NO trailing commas in JSON objects or arrays
-3. All strings MUST use double quotes, not single quotes
-4. Escape special characters: use \\" for quotes inside strings, \\\\ for backslashes
-5. For math in explanations, use single $: "explanation": "The formula $x^2$ shows..."
-6. Newlines in strings must be escaped: \\n
-7. Test that your JSON is valid before outputting
-
-**Valid Example**:
-@quiz[Calculus]{
-[
-  {
-    "question": "What is the derivative of $x^2$?",
-    "type": "single",
-    "difficulty": "Easy",
-    "options": ["$x$", "$2x$", "$x^2$", "$2x^2$"],
-    "correctAnswers": ["$2x$"],
-    "explanation": "Using the power rule: $\\frac{d}{dx}(x^n) = nx^{n-1}$, so $\\frac{d}{dx}(x^2) = 2x^1 = 2x$."
-  }
-]
-}
-
-**Invalid Examples** (DO NOT DO THIS):
-❌ @quiz[Topic]{ {"question": "..."} }  // Not an array
-❌ @quiz[Topic]{ [..., ] }  // Trailing comma
-❌ @quiz[Topic]{ ['options'] }  // Single quotes
-❌ @quiz[Topic]{ [..., "explanation": "Use "quotes" here"] }  // Unescaped quotes
-
+This structured approach ensures perfect conversion with no parsing errors.
 
 `;
   const system = `
@@ -264,7 +219,7 @@ ${studyMode ? `
 
 ### 📝 Notes
 - Title: Auto-generate a descriptive title (e.g., "Summary of Quantum Mechanics").
-- Content: MUST be valid Markdown.use this rules for any notes content ${notecontentrules}.
+- Content: ${notecontentrules}.
 
 ### 🃏 Flashcards
 - **Autonomy**: Do not ask the user for questions. Analyze the context (notes/folders) or any other available information and generate 5-10 high-quality cards.
@@ -274,13 +229,27 @@ ${studyMode ? `
 - Use this for: News, Citations, Recent Libraries/Frameworks, or when you are unsure.
 - **Citations**: If you use search results, cite them in your text response using [1], [2] format corresponding to the source order.
 ## Your Output Format Rules:
+## 2. STANDARD OPERATING PROCEDURES (SOP)
 
+### SOP: CREATING NOTES
+When asked to create a note, you MUST follow this strictly:
+1. **Plan**: Outline the topic.
+2. **Search Video**: You MUST call the \`youtubeVideo\` tool to find a real, relevant tutorial link for the topic.
+3. **Generate Content**: Create the note using the \`createNote\` tool.
+   - The note MUST include the YouTube video you found (using the 'youtubeVideo' block type).
+   - The note MUST end with a 'quiz' block containing 3-5 questions to test the user.
+   - Use 'heading', 'codeBlock', and 'table' blocks to make it rich.
+
+### SOP: UPDATING NOTES
+When asked to update or add to a note, you MUST:
+1. **Fetch**: Call \`getNoteContent\` to read the current text (it returns Markdown).if you see @youtube[] that is a youtube video link or @quiz[] that is a quiz block (it is how the function converts blocknote to markdown for you dont use the symbols anywhere they are for you).
+2. **Update**: Update the note using the \`updateNote\` tool.
 `;
 
   const tools = createTools(convex);
 
   const result = streamText({
-    model: thinking ? google("gemini-2.5-pro") : google("gemini-2.5-flash"),
+    model:google('gemini-2.5-pro'),
     messages: convertToModelMessages(messages),
     system: system,
     providerOptions: {
@@ -301,7 +270,7 @@ ${studyMode ? `
       console.log("Total tokens:", totalTokens);
     },
   });
-
+  console.log(result.response)
   return result.toUIMessageStreamResponse({
     sendSources: true,
     sendReasoning: true,
@@ -357,6 +326,7 @@ export function createTools(convex: ConvexHttpClient) {
             }
           );
           console.log("success in generateFlashcards");
+          console.log('used generateFlashcards tool')
           return {
             success: true,
             flashcard: flashcard,
@@ -391,6 +361,7 @@ export function createTools(convex: ConvexHttpClient) {
             }
           );
           console.log("success in getUserFlashcards");
+          console.log('used getUserFlashcards tool')
           return {
             success: true,
             flashcards,
@@ -428,6 +399,7 @@ export function createTools(convex: ConvexHttpClient) {
             }),
           ]);
           console.log("success in getfolderitems");
+          console.log('used getfolderitems tool')
           return {
             success: true,
             notes: notes || [],
@@ -447,21 +419,13 @@ export function createTools(convex: ConvexHttpClient) {
 
     createNote: tool({
       description:
-        'Create a new note with a title and content in markdown format . You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title if they have provided a topic .',
+        'Create a new note with a title and content  . You should generate an appropriate title based on the topic (e.g., "Introduction to Machine Learning", "Chapter 3 Summary"). DO NOT ask the user for a title if they have provided a topic .',
       inputSchema: z.object({
         folderId: z
           .string()
           .describe("The folder ID where the note should be created"),
-        title: z
-          .string()
-          .describe(
-            "The title for the note (you generate this based on the topic)"
-          ),
-        content: z
-          .string()
-          .describe(
-            "The content for the note (you generate this based on the topic)in markdown format"
-          ),
+        title: z.string().describe("Note title"),
+        content: blocksSchema,
       }),
       execute: async ({
         folderId,
@@ -469,17 +433,22 @@ export function createTools(convex: ConvexHttpClient) {
         content,
       }): Promise<CreateNoteOutput | { success: false; error: string }> => {
         try {
-          const blocks = markdownToBlockNote(content);
+          const blocks = convertSchemaToBlockNote(content);
+          console.log('=== STRUCTURED INPUT ===');
+          console.log(JSON.stringify(content, null, 2));
+          console.log('=== BLOCKNOTE OUTPUT ===');
+          console.log(blocks);
           const note = await convex.mutation(api.notes.createNote, {
             folderId: folderId as Id<"folders">,
             title: title,
             content: blocks,
           });
           console.log("created note", note);
+          console.log('used createNote tool')
           return {
             success: true,
             note: note,
-            message: `Created note: "${title}".with content "${content}"`,
+            message: `Created note: "${title}"`,
           };
         } catch (error) {
           console.log("note creation error", error);
@@ -493,27 +462,27 @@ export function createTools(convex: ConvexHttpClient) {
 
     updateNote: tool({
       description:
-        "Update the content of an existing note. Content MUST be markdown",
+        "Update the content of an existing note",
       inputSchema: z.object({
         noteId: z.string().describe("The note ID to update"),
-        content: z
-          .string()
-          .describe(
-            "The full content of the note, written in Markdown format. "
-          ),
+        content: blocksSchema,
       }),
       execute: async ({
         noteId,
         content,
       }): Promise<UpdateNoteOutput | { success: false; error: string }> => {
         try {
-          const blocks = markdownToBlockNote(content);
+          console.log('=== STRUCTURED INPUT ===');
+          console.log(JSON.stringify(content, null, 2));
+          const blockoutput = convertSchemaToBlockNote(content);
+          console.log('=== BLOCKNOTE OUTPUT ===');
+          console.log(blockoutput);
           const note = await convex.mutation(api.notes.updateContent, {
             noteId: noteId as Id<"notes">,
-            content: blocks,
+            content: blockoutput,
           });
-          console.log("blocks", blocks);
           console.log("updated note", note);
+          console.log('used updateNote tool')
           return {
             success: true,
             note: note,
@@ -543,6 +512,7 @@ export function createTools(convex: ConvexHttpClient) {
             return { success: false, error: "Note content not found" };
           }
           const markdown = blockNoteToMarkdown(note.content);
+          console.log('used getnotecontent tool')
           return { success: true, markdown };
         } catch (error) {
           console.log("note content error", error);
@@ -567,7 +537,7 @@ export function createTools(convex: ConvexHttpClient) {
           const flashcard = await convex.query(api.flashcards.getFlashcard, {
             flashcardId: flashcardId as Id<"flashcards">,
           });
-
+          console.log('used getFlashcard tool')
           return {
             success: true,
             flashcard: flashcard,
@@ -600,7 +570,7 @@ export function createTools(convex: ConvexHttpClient) {
           }
 
           const data = await response.json();
-
+          console.log('used searchTheWeb tool')
           // Extract snippets and sources
           const results = data.items?.map((item: any) => ({
             content: item.snippet,
@@ -650,6 +620,7 @@ export function createTools(convex: ConvexHttpClient) {
             description,
           });
           console.log("created folder", folder);
+          console.log('used createFolder tool')
           return {
             success: true,
             folder,
@@ -683,6 +654,7 @@ export function createTools(convex: ConvexHttpClient) {
             description,
           });
           console.log("updated folder", folder);
+          console.log('used updateFolder tool')
           return { success: true, message: `Updated folder: "${name}"` };
         } catch (error) {
           console.log("folder update error", error);
