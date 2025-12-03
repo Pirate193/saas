@@ -362,14 +362,16 @@ export function FolderTreeItem({
           {/* Flashcards Link (placeholder - shows all flashcards in folder) */}
           {fetchFlashcardsInFolder && fetchFlashcardsInFolder.length > 0 && (
             <div
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors"
+              className=""
               style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
               onClick={() => router.push(`/folders/${folder._id}/flashcards`)}
             >
-              <CreditCard className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">
-                Flashcards ({fetchFlashcardsInFolder.length}){" "}
-              </span>
+              <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors">
+                <CreditCard className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">
+                  Flashcards ({fetchFlashcardsInFolder.length}){" "}
+                </span>
+              </div>
             </div>
           )}
 
@@ -379,27 +381,29 @@ export function FolderTreeItem({
             fectchFilesInFolder.map((file) => (
               <div key={file._id}>
                 <div
-                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors"
+                  className=""
                   style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
                   onClick={() =>
                     router.push(`/folders/${folder._id}/files/${file._id}`)
                   }
                 >
-                  <FileIcon className="h-4 w-4 shrink-0" />
-                  <span className="flex-1 truncate">{file.fileName} </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFileToDelete(file._id);
-                      setOpenDeleteFileDialog(true);
-                      setFilenameToDelete(file.fileName);
-                    }}
-                  >
-                    <Trash className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors">
+                    <FileIcon className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 truncate">{file.fileName} </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFileToDelete(file._id);
+                        setOpenDeleteFileDialog(true);
+                        setFilenameToDelete(file.fileName);
+                      }}
+                    >
+                      <Trash className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

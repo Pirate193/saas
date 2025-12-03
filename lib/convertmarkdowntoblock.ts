@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-
+import { v4 as uuidv4 } from 'uuid';
 
 interface BlockNoteBlock {
   id: string;
@@ -65,7 +65,7 @@ function parseLine(line: string, allLines: string[], currentIndex: number): Bloc
   // Divider/Separator (--- or ***)
   if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
     return {
-      id: randomUUID(),
+      id: uuidv4(),
       type: 'divider',
       props: {},
       children: []
@@ -94,7 +94,7 @@ function parseLine(line: string, allLines: string[], currentIndex: number): Bloc
     
   
       const block= {
-        id: randomUUID(),
+        id: uuidv4(),
         type: 'youtubeVideo',
         props: {
           backgroundColor: 'default',
@@ -163,7 +163,7 @@ if (quizMatch) {
     }
     
     const block = {
-      id: randomUUID(),
+      id: uuidv4(),
       type: 'quiz',
       props: {
         topic: topic,
@@ -209,7 +209,7 @@ if (quizMatch) {
 
     const codeText = codeLines.join('\n');
     const block = {
-      id: randomUUID(),
+      id: uuidv4(),
       type: 'codeBlock',
       props: { language },
       content: [createTextContent(codeText)],
@@ -223,7 +223,7 @@ if (quizMatch) {
   if (trimmed.startsWith('>')) {
     const text = trimmed.slice(1).trim();
     return {
-      id: randomUUID(),
+      id: uuidv4(),
       type: 'quote',
       props: {
         backgroundColor: 'default',
@@ -316,7 +316,7 @@ function parseTable(lines: string[], startIndex: number): BlockNoteBlock | null 
   };
 
   const block = {
-    id: randomUUID(),
+    id: uuidv4(),
     type: 'table',
     props: {
       textColor: 'default'
@@ -451,7 +451,7 @@ function createBlock(
   const props = { ...defaultProps, ...customProps };
 
   return {
-    id: randomUUID(),
+    id: uuidv4(),
     type,
     props,
     content,

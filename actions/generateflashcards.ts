@@ -4,8 +4,10 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { YoutubeTranscript } from "youtube-transcript";
+import { Innertube } from 'youtubei.js';
 
 import { PDFParse } from "pdf-parse";
+
 PDFParse.setWorker('https://cdn.jsdelivr.net/npm/pdf-parse@latest/dist/pdf-parse/web/pdf.worker.mjs');
 const FlashcardSchema = z.object({
   flashcards: z.array(
@@ -21,6 +23,12 @@ const FlashcardSchema = z.object({
     })
   ),
 });
+function getYoutubeVideoId(url: string): string | null {
+  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
+
 
 
 export async function generateFlashcardsContent(formData: FormData) {
@@ -41,9 +49,36 @@ export async function generateFlashcardsContent(formData: FormData) {
       context = (formData.get("text") as string).slice(0, 30000);
     } else if (type === "youtube") {
       const url = formData.get("url") as string;
-      const transcript = await YoutubeTranscript.fetchTranscript(url);
-      context = transcript.map((t: any) => t.text).join(" ").slice(0, 30000);
-      console.log(transcript);
+       const videoId = getYoutubeVideoId(url);
+          
+          if (!videoId) {
+            throw new Error("Invalid YouTube URL");
+          }
+      
+          console.log(`Fetching transcript for ID: ${videoId}...`);
+      
+          // 1. Initialize Innertube (Mimics a real YouTube client)
+          const youtube = await Innertube.create();
+      
+          // 2. Fetch Video Info
+          const info = await youtube.getInfo(videoId);
+      
+          // 3. Get Transcript Data
+          const transcriptData = await info.getTranscript();
+      
+          if (!transcriptData || !transcriptData.transcript || !transcriptData.transcript.content?.body) {
+             throw new Error("No transcript available for this video.");
+          }
+      
+          // 4. Convert segments to a single string
+          // content.body.runs[0].text is the path to the text in Innertube objects
+          const transcriptText = transcriptData.transcript.content.body.initial_segments
+            .map((segment: any) => segment.snippet.text)
+            .join(" ");
+      
+          console.log("Transcript:", transcriptText);
+          console.log("Transcript length:", transcriptText.length);
+          context = transcriptText.slice(0, 30000);
     } else if (type === "pdf") {
       //@ts-ignore
       const pdfjs = await import("pdfjs-dist/build/pdf.mjs");

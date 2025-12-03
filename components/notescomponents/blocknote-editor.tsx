@@ -24,7 +24,7 @@ import "@blocknote/shadcn/style.css";
 import { codeBlockOptions } from "@blocknote/code-block";
 import { BrainCircuit, Paintbrush, Video, Youtube } from "lucide-react";
 import createWhiteboard from "./customBlocks";
-import { Fragment } from "react";
+import { Fragment, useEffect } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import { createYoutubeVideo } from "./youtubeBlocks";
 import { useConvex, useMutation } from "convex/react";
@@ -192,6 +192,17 @@ const BlocknoteEditor = ({
       return undefined;
     }
   };
+  const parseContent = (
+    content: string | undefined
+  ): PartialBlock[] | undefined => {
+    if (!content || content.trim() === "" || content === '""') return undefined;
+    try {
+      const parsed = JSON.parse(content);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch (error) {
+      return undefined;
+    }
+  };
 
   // Create editor with proper typing
   const editor = useCreateBlockNote({
@@ -200,6 +211,27 @@ const BlocknoteEditor = ({
     uploadFile: handleUpload,
   });
 
+  useEffect(() => {
+    if (!editor || !initialContent) return;
+
+    // 1. Get the current editor state as a string
+    const currentEditorContent = JSON.stringify(editor.document);
+
+    // 2. Compare with the new content from Convex
+    // If they are different, it means the update came from OUTSIDE (LLM or other tab)
+    if (currentEditorContent !== initialContent) {
+      // 3. Optional: Don't interrupt if the user is actively typing (focused)
+      // Removing this check allows "live" updates but might move cursor.
+      // For LLM updates (which happen when user is waiting), this is safe.
+      // if (editor.isFocused()) return;
+
+      const parsed = parseContent(initialContent);
+      if (parsed) {
+        // 4. Replace the blocks in the editor
+        editor.replaceBlocks(editor.document, parsed);
+      }
+    }
+  }, [initialContent, editor]);
   const checkForMath = (
     editor: BlockNoteEditor<
       typeof customSchema.blockSchema,

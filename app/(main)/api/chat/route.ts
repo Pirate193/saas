@@ -242,7 +242,7 @@ When asked to create a note, you MUST follow this strictly:
 
 ### SOP: UPDATING NOTES
 When asked to update or add to a note, you MUST:
-1. **Fetch**: Call \`getNoteContent\` to read the current text (it returns Markdown).if you see @youtube[] that is a youtube video link or @quiz[] that is a quiz block (it is how the function converts blocknote to markdown for you dont use the symbols anywhere they are for you).
+1. **Fetch**: Call \`getNoteContent\` to read the current text (it returns Markdown).if you see @youtube[] that is a youtube video link or @quiz[] that is a quiz block (it is how the function converts blocknote to markdown for you dont use the symbols anywhere they are for you) .
 2. **Update**: Update the note using the \`updateNote\` tool.
 `;
 
@@ -814,20 +814,20 @@ export function createTools(convex: ConvexHttpClient) {
 
       const contextString = hits
         .map((result: any, i: number) => {
-           // 🚨 THE FIX: Drill into content[0].text
+           
            const textContent = result.content?.[0]?.text || "";
            return `[${i + 1}] "${textContent.trim()}"`;
         })
         .join("\n\n");
 
       const sources = hits.map((result: any) => {
-        // 🚨 THE FIX: Drill into content[0].text for UI too
+       
         const textContent = result.content?.[0]?.text || "";
         return {
           pageContent: textContent,
           metadata: { 
              score: result.score 
-             // Note: Your current data doesn't have explicit 'pageNumber' metadata, 
+             // Note: my  current data doesn't have explicit 'pageNumber' metadata, 
              // but it is written inside the text (e.g. "-- 1 of 14 --")
           }
         };

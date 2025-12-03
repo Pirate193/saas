@@ -179,3 +179,11 @@ export const fetchallfiles = query({
     }
 })
 
+export const deletefilefromstorage = mutation({
+    args:{
+        storageId:v.id("_storage")
+    },
+    handler:async (ctx ,args)=>{
+        await ctx.storage.delete(args.storageId)
+    }
+})

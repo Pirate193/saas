@@ -128,11 +128,6 @@ const Notesheader = ({ noteId }: Props) => {
       toast.error("Failed to export note.");
     }
   };
-
-  const handleTranscribe = (text: string) => {
-    console.log("Transcribed text:", text);
-    // TODO: Send text to backend to process
-  };
   return (
     <>
       <div className="p-4 flex items-center justify-between gap-2">
@@ -171,6 +166,12 @@ const Notesheader = ({ noteId }: Props) => {
               <Sparkles className="h-4 w-4" />
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => setOpenTranscribeDialog(true)}
+          >
+            <Mic className=" h-8 w-8" />
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" aria-label="Open menu" size="icon-sm">
@@ -182,10 +183,6 @@ const Notesheader = ({ noteId }: Props) => {
               <DropdownMenuItem onSelect={() => setOpenRenameDialog(true)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setOpenTranscribeDialog(true)}>
-                <Mic className="mr-2 h-4 w-4" />
-                Transcribe
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => setOpenDeleteDialog(true)}
@@ -222,7 +219,7 @@ const Notesheader = ({ noteId }: Props) => {
       <TranscribeDialog
         open={openTranscribeDialog}
         onOpenChange={setOpenTranscribeDialog}
-        onTranscribe={handleTranscribe}
+        noteId={noteId}
       />
     </>
   );
