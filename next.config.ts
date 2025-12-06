@@ -19,8 +19,9 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "ik.imagekit.io",
+        hostname: "pub-ea88a79c86c64be79203c8b58477289d.r2.dev",
       },
+
     ],
   },
 };

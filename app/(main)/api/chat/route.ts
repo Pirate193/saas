@@ -847,27 +847,6 @@ export function createTools(convex: ConvexHttpClient) {
       }
      })
 
-    // createWhiteboard: tool({
-    //   description: 'Create a new whiteboard for freeform drawing, brainstorming, or visual problem-solving.',
-    //   inputSchema: z.object({
-    //     title: z.string().describe('Title for the whiteboard'),
-    //     folderId: z.string().optional().describe('Optional folder ID'),
-    //   }),
-    //   execute: async ({ title, }): Promise<CreateWhiteboardOutput | { success: false, error: string }> => {
-    //     try {
-    //       const whiteboardId = `wb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    //       return {
-    //         success: true,
-    //         id: whiteboardId,
-    //         title,
-    //         message: `Created whiteboard: "${title}"`
-    //       };
-    //     } catch (error) {
-    //       console.log('error in createWhiteboard', error);
-    //       return { success: false, error: `Failed to create whiteboard: ${error}` };
-    //     }
-    //   }
-    // }),
+     
   };
 }

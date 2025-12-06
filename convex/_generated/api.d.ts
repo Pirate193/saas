@@ -22,6 +22,7 @@ import type * as rag from "../rag.js";
 import type * as saving from "../saving.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as user from "../user.js";
+import type * as videos from "../videos.js";
 
 import type {
   ApiFromModules,
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   saving: typeof saving;
   subscriptions: typeof subscriptions;
   user: typeof user;
+  videos: typeof videos;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 

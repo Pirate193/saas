@@ -35,10 +35,10 @@ export async function generateFlashcardsContent(formData: FormData) {
   // 1. Extract all fields
   const type = formData.get("type") as "topic" | "text" | "youtube" | "pdf";
   const topic = formData.get("topic") as string;
-  const description = formData.get("description") as string; // <--- RESTORED
+  const description = formData.get("description") as string; 
   const count = Number(formData.get("count"));
   const isMcq = formData.get("isMcq") === "true";
-  const optionsCount = Number(formData.get("optionsCount")) || 4; // <--- RESTORED
+  const optionsCount = Number(formData.get("optionsCount")) || 4; 
 
   let context = "";
 

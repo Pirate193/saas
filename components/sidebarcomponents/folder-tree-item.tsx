@@ -13,6 +13,7 @@ import {
   File as FileIcon,
   Sparkles,
   Trash,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Id } from "@/convex/_generated/dataModel";
@@ -35,6 +36,9 @@ import Createflashcard from "../flashcardComponents/createFlashcard";
 import FlashcardAIGenerateDialog from "../flashcardComponents/ai-flashcard";
 import MoveDialog from "../folderscomponents/movedialog";
 import { toast } from "sonner";
+import Aivideo from "../videos/ai-video";
+import { fetchExternalImage } from "next/dist/server/image-optimizer";
+import { Skeleton } from "../ui/skeleton";
 
 // ============================================
 // TYPE DEFINITIONS
@@ -120,6 +124,9 @@ export function FolderTreeItem({
   const fetchFlashcardsInFolder = useQuery(api.flashcards.fetchFlashcards, {
     folderId: folder._id,
   });
+  const fetchVideosInFolder = useQuery(api.videos.fetchfoldervideos, {
+    folderId: folder._id,
+  });
   // ============================================
   // COMPUTED VALUES
   // ============================================
@@ -128,7 +135,8 @@ export function FolderTreeItem({
     childFolders.length > 0 ||
     (fetchNotesInFolder && fetchNotesInFolder.length > 0) ||
     (fectchFilesInFolder && fectchFilesInFolder.length > 0) ||
-    (fetchFlashcardsInFolder && fetchFlashcardsInFolder.length > 0); // Does this folder have subfolders?
+    (fetchFlashcardsInFolder && fetchFlashcardsInFolder.length > 0) ||
+    (fetchVideosInFolder && fetchVideosInFolder.length > 0); // Does this folder have subfolders?
   const counts = getFolderItemCounts(folder._id); // Count notes and subfolders
   const isActive = pathname === `/folders/${folder._id}`; // Is user currently viewing this folder?
   const createNote = useMutation(api.notes.createNote);
@@ -144,6 +152,7 @@ export function FolderTreeItem({
   const [openAiFlashcardDialog, setOpenAiFlashcardDialog] = useState(false); //ai flashcard dialog state
   const [openDeleteFileDialog, setOpenDeleteFileDialog] = useState(false); //delete file dialog state
   const [openMoveDialog, setOpenMoveDialog] = useState(false); //move dialog state
+  const [openAiVideoDialog, setOpenAiVideoDialog] = useState(false); //ai video dialog state
 
   const [fileToDelete, setFileToDelete] = useState<Id<"files"> | null>(null);
   const [filenametoDelete, setFilenameToDelete] = useState<string | null>(null);
@@ -281,6 +290,15 @@ export function FolderTreeItem({
                 <FileIcon className="h-4 w-4 mr-2" />
                 Upload File
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpenAiVideoDialog(true);
+                }}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                AI Video
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -360,6 +378,7 @@ export function FolderTreeItem({
             ))}
 
           {/* Flashcards Link (placeholder - shows all flashcards in folder) */}
+
           {fetchFlashcardsInFolder && fetchFlashcardsInFolder.length > 0 && (
             <div
               className=""
@@ -407,6 +426,19 @@ export function FolderTreeItem({
                 </div>
               </div>
             ))}
+          {fetchVideosInFolder && fetchVideosInFolder.length > 0 && (
+            <div
+              style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+              onClick={() => router.push(`/folders/${folder._id}/videos`)}
+            >
+              <div className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 cursor-pointer transition-colors">
+                <Video className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">
+                  Videos ({fetchVideosInFolder.length})
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
       <CreateFolder
@@ -459,6 +491,11 @@ export function FolderTreeItem({
       <MoveDialog
         open={openMoveDialog}
         onOpenChange={setOpenMoveDialog}
+        folderId={folder._id}
+      />
+      <Aivideo
+        open={openAiVideoDialog}
+        onOpenChange={setOpenAiVideoDialog}
         folderId={folder._id}
       />
     </div>

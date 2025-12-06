@@ -156,4 +156,19 @@ export default defineSchema({
    })
    .index("by_user",["userId"]),
 
+   videos:defineTable({
+    userId:v.string(),
+    folderId:v.optional(v.id("folders")),
+    title:v.optional(v.string()),
+    description:v.optional(v.string()),
+    url:v.optional(v.string()),
+    templateId:v.optional(v.id("videos")),
+    filesize:v.optional(v.number()),
+    thumbnail:v.optional(v.string()),
+    status:v.union(v.literal("generating"),v.literal("ready"),v.literal("failed")),
+   })
+   .index("by_user",["userId"])
+   .index("by_folder",["folderId"])
+   .index("by_title",["title"]),
+
 })
